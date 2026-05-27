@@ -99,6 +99,21 @@ class CalendarioCreate(BaseModel):
     color: str = "#3B82F6"
     notas: Optional[str] = None
 
+class PresupuestoCreate(BaseModel):
+    titulo: str
+    descripcion: Optional[str] = None
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    estado: str = "borrador"
+    validez_dias: int = 30
+    base_imponible: float = 0
+    iva: float = 0
+    tipo_iva: float = 21.00
+    retencion_irpf: float = 0
+    total: float = 0
+    condiciones_pago: Optional[str] = None
+    notas: Optional[str] = None
+
 
 # ══════════════════════════════════════════════════════
 # CLIENTES
@@ -468,6 +483,128 @@ def eliminar_evento(evento_id: int):
         if cur.rowcount == 0:
             raise HTTPException(404, "Evento no encontrado")
         return {"mensaje": "Evento eliminado"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# PRESUPUESTOS
+# ══════════════════════════════════════════════════════
+
+@app.get("/api/presupuestos")
+def listar_presupuestos(activo: bool = True, estado: str = None):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if estado:
+            cur.execute("SELECT * FROM presupuestos WHERE activo = %s AND estado = %s ORDER BY fecha_creacion DESC", (activo, estado))
+        else:
+            cur.execute("SELECT * FROM presupuestos WHERE activo = %s ORDER BY fecha_creacion DESC", (activo,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.get("/api/presupuestos/{presupuesto_id}")
+def obtener_presupuesto(presupuesto_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM presupuestos WHERE id = %s", (presupuesto_id,))
+        p = cur.fetchone()
+        if not p:
+            raise HTTPException(404, "Presupuesto no encontrado")
+        p = serialize_dict(p)
+        cur.execute("SELECT * FROM presupuesto_lineas WHERE presupuesto_id = %s ORDER BY id", (presupuesto_id,))
+        p["lineas"] = [serialize_dict(r) for r in cur.fetchall()]
+        return p
+    finally:
+        conn.close()
+
+@app.post("/api/presupuestos")
+def crear_presupuesto(data: PresupuestoCreate):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO presupuestos (titulo, descripcion, cliente_id, cliente_nombre,
+                estado, validez_dias, base_imponible, iva, tipo_iva,
+                retencion_irpf, total, condiciones_pago, notas)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            data.titulo, data.descripcion, data.cliente_id, data.cliente_nombre,
+            data.estado, data.validez_dias, data.base_imponible, data.iva,
+            data.tipo_iva, data.retencion_irpf, data.total,
+            data.condiciones_pago, data.notas
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "mensaje": "Presupuesto creado"}
+    finally:
+        conn.close()
+
+@app.patch("/api/presupuestos/{presupuesto_id}")
+def actualizar_presupuesto(presupuesto_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if v is not None:
+                sets.append(f"{k} = %s")
+                vals.append(v)
+        if not sets:
+            raise HTTPException(400, "Sin campos para actualizar")
+        vals.append(presupuesto_id)
+        cur.execute(f"UPDATE presupuestos SET {', '.join(sets)}, fecha_modificacion = NOW() WHERE id = %s", vals)
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Presupuesto no encontrado")
+        return {"mensaje": "Presupuesto actualizado"}
+    finally:
+        conn.close()
+
+@app.delete("/api/presupuestos/{presupuesto_id}")
+def eliminar_presupuesto(presupuesto_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE presupuestos SET activo = FALSE, fecha_modificacion = NOW() WHERE id = %s", (presupuesto_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Presupuesto no encontrado")
+        return {"mensaje": "Presupuesto eliminado"}
+    finally:
+        conn.close()
+
+# ── Líneas de presupuesto ─────────────────────────
+
+@app.get("/api/presupuestos/{presupuesto_id}/lineas")
+def listar_lineas(presupuesto_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM presupuesto_lineas WHERE presupuesto_id = %s ORDER BY id", (presupuesto_id,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/presupuestos/{presupuesto_id}/lineas")
+def añadir_linea(presupuesto_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO presupuesto_lineas (presupuesto_id, descripcion, cantidad, unidad, precio_unitario, importe)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (
+            presupuesto_id, data.get("descripcion"), data.get("cantidad", 1),
+            data.get("unidad", "ud"), data.get("precio_unitario", 0),
+            data.get("importe", 0)
+        ))
+        conn.commit()
+        return {"mensaje": "Línea añadida"}
     finally:
         conn.close()
 

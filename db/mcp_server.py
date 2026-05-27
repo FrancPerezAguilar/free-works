@@ -270,6 +270,58 @@ TOOLS = [
             "required": ["evento_id"]
         }
     ),
+    # ── Presupuestos ──────────────────────────────────
+    Tool(
+        name="listar_presupuestos",
+        description="Lista todos los presupuestos",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "estado": {"type": "string", "description": "Filtrar por estado (borrador, pendiente, aceptado, rechazado, vencido)"}
+            }
+        }
+    ),
+    Tool(
+        name="obtener_presupuesto",
+        description="Obtiene los detalles de un presupuesto por ID",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "presupuesto_id": {"type": "integer", "description": "ID del presupuesto"}
+            },
+            "required": ["presupuesto_id"]
+        }
+    ),
+    Tool(
+        name="crear_presupuesto",
+        description="Crea un nuevo presupuesto para un cliente",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "titulo": {"type": "string", "description": "Título del presupuesto"},
+                "descripcion": {"type": "string", "description": "Descripción"},
+                "cliente_id": {"type": "integer", "description": "ID del cliente"},
+                "cliente_nombre": {"type": "string", "description": "Nombre del cliente"},
+                "base_imponible": {"type": "number", "description": "Base imponible"},
+                "iva": {"type": "number", "description": "IVA"},
+                "total": {"type": "number", "description": "Total"},
+                "estado": {"type": "string", "description": "Estado (borrador, pendiente, aceptado)", "default": "borrador"}
+            },
+            "required": ["titulo"]
+        }
+    ),
+    Tool(
+        name="actualizar_estado_presupuesto",
+        description="Cambia el estado de un presupuesto",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "presupuesto_id": {"type": "integer", "description": "ID del presupuesto"},
+                "estado": {"type": "string", "description": "Nuevo estado (borrador, pendiente, aceptado, rechazado, vencido)"}
+            },
+            "required": ["presupuesto_id", "estado"]
+        }
+    ),
 ]
 
 
@@ -421,6 +473,34 @@ async def call_tool(name: str, arguments: dict):
     
     elif name == "eliminar_evento":
         result = await call_api("DELETE", f"/calendario/{arguments['evento_id']}")
+    
+    # ── Presupuestos handlers ─────────────────────────
+    elif name == "listar_presupuestos":
+        params = {}
+        if arguments.get("estado"):
+            params["estado"] = arguments["estado"]
+        result = await call_api("GET", "/presupuestos", params=params)
+    
+    elif name == "obtener_presupuesto":
+        result = await call_api("GET", f"/presupuestos/{arguments['presupuesto_id']}")
+    
+    elif name == "crear_presupuesto":
+        body = {
+            "titulo": arguments["titulo"],
+            "descripcion": arguments.get("descripcion"),
+            "cliente_id": arguments.get("cliente_id"),
+            "cliente_nombre": arguments.get("cliente_nombre"),
+            "base_imponible": arguments.get("base_imponible", 0),
+            "iva": arguments.get("iva", 0),
+            "total": arguments.get("total", 0),
+            "estado": arguments.get("estado", "borrador")
+        }
+        result = await call_api("POST", "/presupuestos", json=body)
+    
+    elif name == "actualizar_estado_presupuesto":
+        result = await call_api("PATCH", f"/presupuestos/{arguments['presupuesto_id']}", json={
+            "estado": arguments["estado"]
+        })
     
     else:
         result = {"error": f"Tool '{name}' no encontrado"}
