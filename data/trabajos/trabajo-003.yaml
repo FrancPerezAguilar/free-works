@@ -2,8 +2,11 @@ id: trabajo-003
 uuid: dcf6b486-3db0-42d2-9d06-58b357959ab9
 codigo_trabajo: ''
 titulo: Instalación caldera
-descripcion: Instalación de caldera en el domicilio de la cliente. Incluye conexión
+descripcion: 'Instalación de caldera en el domicilio de la cliente. Incluye conexión
   eléctrica, gas y evacuación de humos.
+
+
+  Inicio: viernes 29/05 a las 12:00. Duración estimada: 2-3 horas.'
 cliente_id: cliente-001
 cliente_nombre: María García
 oportunidad_id: ''
@@ -21,10 +24,10 @@ direccion_obra:
     lng: null
   notas_acceso: ''
 fecha_creacion: '2026-05-27T12:52:55.584059+00:00'
-fecha_inicio: ''
-fecha_fin_estimada: ''
+fecha_inicio: '2026-05-29'
+fecha_fin_estimada: '2026-05-29'
 fecha_fin_real: ''
-estado: pendiente
+estado: en_curso
 prioridad: media
 materiales: []
 tiempos: []
@@ -32,11 +35,11 @@ tecnicos: []
 checklist:
 - id: 6d661cf1-6e52-4970-a96d-81a372202379
   descripcion: Llamar a María García para entregar oferta de la caldera
-  completada: false
+  completada: true
   fecha_programada: '2026-05-29'
   hora_programada: '12:00'
-  fecha_completada: null
-  notas: Entregar presupuesto de instalación de caldera
+  fecha_completada: '2026-05-27T00:00:00+00:00'
+  notas: María llamó directamente. No necesita oferta, va a hacer trabajo directamente.
 fotos: []
 notas: []
 conformidad:
@@ -52,4 +55,4 @@ coste_mano_obra: 0.0
 coste_total: 0.0
 activo: true
 fecha_modificacion: '2026-05-27T12:52:55.584098+00:00'
-fecha_actualizacion: '2026-05-27T12:54:07.908203+00:00'
+fecha_actualizacion: '2026-05-27T15:13:52.891390+00:00'
