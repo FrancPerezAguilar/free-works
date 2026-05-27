@@ -326,6 +326,60 @@ TOOLS = [
             "required": ["evento_id"]
         }
     ),
+    # ── Oportunidades ─────────────────────────────────
+    Tool(
+        name="listar_oportunidades",
+        description="Lista todas las oportunidades comerciales",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "estado": {"type": "string", "description": "Filtrar por estado (abierta, cerrada_ganada, cerrada_perdida, en_negociacion)"}
+            }
+        }
+    ),
+    Tool(
+        name="obtener_oportunidad",
+        description="Obtiene los detalles de una oportunidad por ID",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "oportunidad_id": {"type": "integer", "description": "ID de la oportunidad"}
+            },
+            "required": ["oportunidad_id"]
+        }
+    ),
+    Tool(
+        name="crear_oportunidad",
+        description="Crea una nueva oportunidad comercial para un cliente",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "titulo": {"type": "string", "description": "Título de la oportunidad"},
+                "descripcion": {"type": "string", "description": "Descripción"},
+                "cliente_id": {"type": "integer", "description": "ID del cliente"},
+                "cliente_nombre": {"type": "string", "description": "Nombre del cliente"},
+                "origen": {"type": "string", "description": "Origen (llamada, email, visita, recomendacion, web)"},
+                "probabilidad_cierre": {"type": "integer", "description": "Probabilidad de cierre (0-100%)"},
+                "presupuesto_estimado": {"type": "number", "description": "Presupuesto estimado"},
+                "fecha_contacto": {"type": "string", "description": "Fecha de contacto (YYYY-MM-DD)"},
+                "fecha_cierre_estimada": {"type": "string", "description": "Fecha estimada de cierre (YYYY-MM-DD)"},
+                "notas_seguimiento": {"type": "string", "description": "Notas de seguimiento"}
+            },
+            "required": ["titulo"]
+        }
+    ),
+    Tool(
+        name="actualizar_estado_oportunidad",
+        description="Cambia el estado de una oportunidad",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "oportunidad_id": {"type": "integer", "description": "ID de la oportunidad"},
+                "estado": {"type": "string", "description": "Nuevo estado (abierta, cerrada_ganada, cerrada_perdida, en_negociacion)"}
+            },
+            "required": ["oportunidad_id", "estado"]
+        }
+    ),
     # ── Presupuestos ──────────────────────────────────
     Tool(
         name="listar_presupuestos",
@@ -406,6 +460,89 @@ TOOLS = [
                 "importe": {"type": "number", "description": "Importe total de la línea"}
             },
             "required": ["presupuesto_id", "descripcion"]
+        }
+    ),
+    # ── Facturas ──────────────────────────────────────
+    Tool(
+        name="listar_facturas",
+        description="Lista todas las facturas",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "estado_pago": {"type": "string", "description": "Filtrar por estado de pago (pendiente, pagada, vencida, cobrada)"}
+            }
+        }
+    ),
+    Tool(
+        name="obtener_factura",
+        description="Obtiene los detalles de una factura por ID, incluyendo sus líneas",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "factura_id": {"type": "integer", "description": "ID de la factura"}
+            },
+            "required": ["factura_id"]
+        }
+    ),
+    Tool(
+        name="crear_factura",
+        description="Crea una nueva factura para un cliente",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "cliente_id": {"type": "integer", "description": "ID del cliente"},
+                "cliente_nombre": {"type": "string", "description": "Nombre del cliente"},
+                "nif_cif_cliente": {"type": "string", "description": "NIF/CIF del cliente"},
+                "trabajo_id": {"type": "integer", "description": "ID del trabajo asociado"},
+                "presupuesto_id": {"type": "integer", "description": "ID del presupuesto asociado"},
+                "fecha_emision": {"type": "string", "description": "Fecha de emisión (YYYY-MM-DD)"},
+                "fecha_vencimiento": {"type": "string", "description": "Fecha de vencimiento (YYYY-MM-DD)"},
+                "base_imponible": {"type": "number", "description": "Base imponible"},
+                "iva": {"type": "number", "description": "Importe de IVA"},
+                "total": {"type": "number", "description": "Total"},
+                "estado_pago": {"type": "string", "description": "Estado de pago (pendiente, pagada, vencida)", "default": "pendiente"},
+                "forma_pago": {"type": "string", "description": "Forma de pago (transferencia, efectivo, tarjeta, domiciliacion)"}
+            },
+            "required": ["cliente_nombre"]
+        }
+    ),
+    Tool(
+        name="actualizar_estado_pago_factura",
+        description="Cambia el estado de pago de una factura",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "factura_id": {"type": "integer", "description": "ID de la factura"},
+                "estado_pago": {"type": "string", "description": "Nuevo estado (pendiente, pagada, vencida, cobrada)"}
+            },
+            "required": ["factura_id", "estado_pago"]
+        }
+    ),
+    Tool(
+        name="listar_lineas_factura",
+        description="Lista las líneas de una factura",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "factura_id": {"type": "integer", "description": "ID de la factura"}
+            },
+            "required": ["factura_id"]
+        }
+    ),
+    Tool(
+        name="añadir_linea_factura",
+        description="Añade una línea (partida) a una factura",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "factura_id": {"type": "integer", "description": "ID de la factura"},
+                "descripcion": {"type": "string", "description": "Descripción de la línea"},
+                "cantidad": {"type": "number", "description": "Cantidad (default: 1)"},
+                "unidad": {"type": "string", "description": "Unidad de medida (default: ud)"},
+                "precio_unitario": {"type": "number", "description": "Precio unitario"},
+                "importe": {"type": "number", "description": "Importe total de la línea"}
+            },
+            "required": ["factura_id", "descripcion"]
         }
     ),
 ]
@@ -580,7 +717,37 @@ async def call_tool(name: str, arguments: dict):
     
     elif name == "eliminar_evento":
         result = await call_api("DELETE", f"/calendario/{arguments['evento_id']}")
-    
+
+    # ── Oportunidades handlers ─────────────────────────
+    elif name == "listar_oportunidades":
+        params = {}
+        if arguments.get("estado"):
+            params["estado"] = arguments["estado"]
+        result = await call_api("GET", "/oportunidades", params=params)
+
+    elif name == "obtener_oportunidad":
+        result = await call_api("GET", f"/oportunidades/{arguments['oportunidad_id']}")
+
+    elif name == "crear_oportunidad":
+        body = {
+            "titulo": arguments["titulo"],
+            "descripcion": arguments.get("descripcion"),
+            "cliente_id": arguments.get("cliente_id"),
+            "cliente_nombre": arguments.get("cliente_nombre"),
+            "origen": arguments.get("origen"),
+            "probabilidad_cierre": arguments.get("probabilidad_cierre", 50),
+            "presupuesto_estimado": arguments.get("presupuesto_estimado", 0),
+            "fecha_contacto": arguments.get("fecha_contacto"),
+            "fecha_cierre_estimada": arguments.get("fecha_cierre_estimada"),
+            "notas_seguimiento": arguments.get("notas_seguimiento")
+        }
+        result = await call_api("POST", "/oportunidades", json=body)
+
+    elif name == "actualizar_estado_oportunidad":
+        result = await call_api("PATCH", f"/oportunidades/{arguments['oportunidad_id']}", json={
+            "estado": arguments["estado"]
+        })
+
     # ── Presupuestos handlers ─────────────────────────
     elif name == "listar_presupuestos":
         params = {}
@@ -624,7 +791,52 @@ async def call_tool(name: str, arguments: dict):
             "importe": arguments.get("importe", 0)
         }
         result = await call_api("POST", f"/presupuestos/{arguments['presupuesto_id']}/lineas", json=body)
-    
+
+    # ── Facturas handlers ─────────────────────────────
+    elif name == "listar_facturas":
+        params = {}
+        if arguments.get("estado_pago"):
+            params["estado_pago"] = arguments["estado_pago"]
+        result = await call_api("GET", "/facturas", params=params)
+
+    elif name == "obtener_factura":
+        result = await call_api("GET", f"/facturas/{arguments['factura_id']}")
+
+    elif name == "crear_factura":
+        body = {
+            "cliente_id": arguments.get("cliente_id"),
+            "cliente_nombre": arguments.get("cliente_nombre"),
+            "nif_cif_cliente": arguments.get("nif_cif_cliente"),
+            "trabajo_id": arguments.get("trabajo_id"),
+            "presupuesto_id": arguments.get("presupuesto_id"),
+            "fecha_emision": arguments.get("fecha_emision"),
+            "fecha_vencimiento": arguments.get("fecha_vencimiento"),
+            "base_imponible": arguments.get("base_imponible", 0),
+            "iva": arguments.get("iva", 0),
+            "total": arguments.get("total", 0),
+            "estado_pago": arguments.get("estado_pago", "pendiente"),
+            "forma_pago": arguments.get("forma_pago")
+        }
+        result = await call_api("POST", "/facturas", json=body)
+
+    elif name == "actualizar_estado_pago_factura":
+        result = await call_api("PATCH", f"/facturas/{arguments['factura_id']}", json={
+            "estado_pago": arguments["estado_pago"]
+        })
+
+    elif name == "listar_lineas_factura":
+        result = await call_api("GET", f"/facturas/{arguments['factura_id']}/lineas")
+
+    elif name == "añadir_linea_factura":
+        body = {
+            "descripcion": arguments["descripcion"],
+            "cantidad": arguments.get("cantidad", 1),
+            "unidad": arguments.get("unidad", "ud"),
+            "precio_unitario": arguments.get("precio_unitario", 0),
+            "importe": arguments.get("importe", 0)
+        }
+        result = await call_api("POST", f"/facturas/{arguments['factura_id']}/lineas", json=body)
+
     else:
         result = {"error": f"Tool '{name}' no encontrado"}
     

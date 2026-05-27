@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import psycopg2
 import psycopg2.extras
@@ -20,6 +21,13 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
 )
+
+SWAGGER_PATH = os.path.join(os.path.dirname(__file__), "..", "docs", "swagger.html")
+
+
+@app.get("/docs/swagger-ui")
+async def swagger_ui():
+    return FileResponse(SWAGGER_PATH)
 
 
 # ── Database helpers ──────────────────────────────────
@@ -113,6 +121,44 @@ class PresupuestoCreate(BaseModel):
     total: float = 0
     condiciones_pago: Optional[str] = None
     notas: Optional[str] = None
+
+class OportunidadCreate(BaseModel):
+    titulo: str
+    descripcion: Optional[str] = None
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    estado: str = "abierta"
+    origen: Optional[str] = None
+    probabilidad_cierre: int = 50
+    presupuesto_estimado: float = 0
+    fecha_contacto: Optional[str] = None
+    fecha_cierre_estimada: Optional[str] = None
+    notas_seguimiento: Optional[str] = None
+
+class FacturaCreate(BaseModel):
+    tipo: str = "factura"
+    cliente_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    nif_cif_cliente: Optional[str] = None
+    trabajo_id: Optional[int] = None
+    presupuesto_id: Optional[int] = None
+    fecha_emision: Optional[str] = None
+    fecha_vencimiento: Optional[str] = None
+    base_imponible: float = 0
+    iva: float = 0
+    tipo_iva: float = 21.00
+    retencion_irpf: float = 0
+    total: float = 0
+    estado_pago: str = "pendiente"
+    forma_pago: Optional[str] = None
+    datos_bancarios_iban: Optional[str] = None
+    datos_bancarios_titular: Optional[str] = None
+    regimen_iva: Optional[str] = None
+    factura_direccion_calle: Optional[str] = None
+    factura_direccion_numero: Optional[str] = None
+    factura_direccion_codigo_postal: Optional[str] = None
+    factura_direccion_municipio: Optional[str] = None
+    factura_direccion_provincia: Optional[str] = None
 
 
 # ══════════════════════════════════════════════════════
@@ -544,8 +590,95 @@ def eliminar_evento(evento_id: int):
 
 
 # ══════════════════════════════════════════════════════
-# PRESUPUESTOS
+# OPORTUNIDADES
 # ══════════════════════════════════════════════════════
+
+@app.get("/api/oportunidades")
+def listar_oportunidades(activo: bool = True, estado: str = None):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if estado:
+            cur.execute("SELECT * FROM oportunidades WHERE activo = %s AND estado = %s ORDER BY fecha_creacion DESC", (activo, estado))
+        else:
+            cur.execute("SELECT * FROM oportunidades WHERE activo = %s ORDER BY fecha_creacion DESC", (activo,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.get("/api/oportunidades/{oportunidad_id}")
+def obtener_oportunidad(oportunidad_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM oportunidades WHERE id = %s", (oportunidad_id,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, "Oportunidad no encontrada")
+        return serialize_dict(r)
+    finally:
+        conn.close()
+
+@app.post("/api/oportunidades")
+def crear_oportunidad(data: OportunidadCreate):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO oportunidades (titulo, descripcion, cliente_id, cliente_nombre,
+                estado, origen, probabilidad_cierre, presupuesto_estimado,
+                fecha_contacto, fecha_cierre_estimada, notas_seguimiento)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            data.titulo, data.descripcion, data.cliente_id, data.cliente_nombre,
+            data.estado, data.origen, data.probabilidad_cierre, data.presupuesto_estimado,
+            data.fecha_contacto, data.fecha_cierre_estimada, data.notas_seguimiento
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "mensaje": "Oportunidad creada"}
+    finally:
+        conn.close()
+
+@app.patch("/api/oportunidades/{oportunidad_id}")
+def actualizar_oportunidad(oportunidad_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if v is not None:
+                sets.append(f"{k} = %s")
+                vals.append(v)
+        if not sets:
+            raise HTTPException(400, "Sin campos para actualizar")
+        vals.append(oportunidad_id)
+        cur.execute(f"UPDATE oportunidades SET {', '.join(sets)} WHERE id = %s", vals)
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Oportunidad no encontrada")
+        return {"mensaje": "Oportunidad actualizada"}
+    finally:
+        conn.close()
+
+@app.delete("/api/oportunidades/{oportunidad_id}")
+def eliminar_oportunidad(oportunidad_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE oportunidades SET activo = FALSE WHERE id = %s", (oportunidad_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Oportunidad no encontrada")
+        return {"mensaje": "Oportunidad eliminada"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# PRESUPUESTOS
 
 @app.get("/api/presupuestos")
 def listar_presupuestos(activo: bool = True, estado: str = None):
@@ -661,6 +794,135 @@ def añadir_linea(presupuesto_id: int, data: dict):
         ))
         conn.commit()
         return {"mensaje": "Línea añadida"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# FACTURAS
+# ══════════════════════════════════════════════════════
+
+@app.get("/api/facturas")
+def listar_facturas(activo: bool = True, estado_pago: str = None):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if estado_pago:
+            cur.execute("SELECT * FROM facturas WHERE activo = %s AND estado_pago = %s ORDER BY fecha_creacion DESC", (activo, estado_pago))
+        else:
+            cur.execute("SELECT * FROM facturas WHERE activo = %s ORDER BY fecha_creacion DESC", (activo,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.get("/api/facturas/{factura_id}")
+def obtener_factura(factura_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM facturas WHERE id = %s", (factura_id,))
+        f = cur.fetchone()
+        if not f:
+            raise HTTPException(404, "Factura no encontrada")
+        f = serialize_dict(f)
+        cur.execute("SELECT * FROM factura_lineas WHERE factura_id = %s ORDER BY id", (factura_id,))
+        f["lineas"] = [serialize_dict(r) for r in cur.fetchall()]
+        return f
+    finally:
+        conn.close()
+
+@app.post("/api/facturas")
+def crear_factura(data: FacturaCreate):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO facturas (tipo, cliente_id, cliente_nombre, nif_cif_cliente,
+                trabajo_id, presupuesto_id, fecha_emision, fecha_vencimiento,
+                base_imponible, iva, tipo_iva, retencion_irpf, total,
+                estado_pago, forma_pago, datos_bancarios_iban, datos_bancarios_titular,
+                regimen_iva, factura_direccion_calle, factura_direccion_numero,
+                factura_direccion_codigo_postal, factura_direccion_municipio,
+                factura_direccion_provincia)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            data.tipo, data.cliente_id, data.cliente_nombre, data.nif_cif_cliente,
+            data.trabajo_id, data.presupuesto_id, data.fecha_emision, data.fecha_vencimiento,
+            data.base_imponible, data.iva, data.tipo_iva, data.retencion_irpf, data.total,
+            data.estado_pago, data.forma_pago, data.datos_bancarios_iban, data.datos_bancarios_titular,
+            data.regimen_iva, data.factura_direccion_calle, data.factura_direccion_numero,
+            data.factura_direccion_codigo_postal, data.factura_direccion_municipio,
+            data.factura_direccion_provincia
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "mensaje": "Factura creada"}
+    finally:
+        conn.close()
+
+@app.patch("/api/facturas/{factura_id}")
+def actualizar_factura(factura_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if v is not None:
+                sets.append(f"{k} = %s")
+                vals.append(v)
+        if not sets:
+            raise HTTPException(400, "Sin campos para actualizar")
+        vals.append(factura_id)
+        cur.execute(f"UPDATE facturas SET {', '.join(sets)}, fecha_modificacion = NOW() WHERE id = %s", vals)
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Factura no encontrada")
+        return {"mensaje": "Factura actualizada"}
+    finally:
+        conn.close()
+
+@app.delete("/api/facturas/{factura_id}")
+def eliminar_factura(factura_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE facturas SET activo = FALSE, fecha_modificacion = NOW() WHERE id = %s", (factura_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Factura no encontrada")
+        return {"mensaje": "Factura eliminada"}
+    finally:
+        conn.close()
+
+# ── Líneas de factura ────────────────────────────
+
+@app.get("/api/facturas/{factura_id}/lineas")
+def listar_lineas_factura(factura_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM factura_lineas WHERE factura_id = %s ORDER BY id", (factura_id,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/facturas/{factura_id}/lineas")
+def añadir_linea_factura(factura_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO factura_lineas (factura_id, descripcion, cantidad, unidad, precio_unitario, importe)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (
+            factura_id, data.get("descripcion"), data.get("cantidad", 1),
+            data.get("unidad", "ud"), data.get("precio_unitario", 0),
+            data.get("importe", 0)
+        ))
+        conn.commit()
+        return {"mensaje": "Línea añadida a la factura"}
     finally:
         conn.close()
 
