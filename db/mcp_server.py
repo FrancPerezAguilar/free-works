@@ -213,6 +213,63 @@ TOOLS = [
             "required": ["cliente_id"]
         }
     ),
+    # ── Calendario ─────────────────────────────────────
+    Tool(
+        name="crear_evento",
+        description="Crea un evento en el calendario (reunión, trabajo, tarea, personal)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "titulo": {"type": "string", "description": "Título del evento"},
+                "fecha_evento": {"type": "string", "description": "Fecha del evento (YYYY-MM-DD)"},
+                "hora_evento": {"type": "string", "description": "Hora del evento (HH:MM)"},
+                "duracion_min": {"type": "integer", "description": "Duración estimada en minutos", "default": 60},
+                "descripcion": {"type": "string", "description": "Descripción del evento"},
+                "entidad_tipo": {"type": "string", "description": "Tipo de entidad vinculada (trabajo, tarea, reunion)"},
+                "entidad_nombre": {"type": "string", "description": "Nombre de la entidad vinculada"},
+                "cliente_nombre": {"type": "string", "description": "Nombre del cliente asociado"},
+                "ubicacion": {"type": "string", "description": "Ubicación del evento"},
+                "color": {"type": "string", "description": "Color del evento en hex (ej: #3B82F6)", "default": "#3B82F6"},
+                "estado": {"type": "string", "description": "Estado del evento", "default": "pendiente"}
+            },
+            "required": ["titulo", "fecha_evento"]
+        }
+    ),
+    Tool(
+        name="listar_eventos",
+        description="Lista eventos del calendario por fecha o tipo",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "fecha": {"type": "string", "description": "Filtro por fecha (YYYY-MM-DD)"},
+                "entidad_tipo": {"type": "string", "description": "Filtro por tipo (trabajo, tarea, reunion)"},
+                "estado": {"type": "string", "description": "Filtro por estado"}
+            }
+        }
+    ),
+    Tool(
+        name="eventos_por_rango",
+        description="Lista eventos del calendario en un rango de fechas",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "desde": {"type": "string", "description": "Fecha inicial (YYYY-MM-DD)"},
+                "hasta": {"type": "string", "description": "Fecha final (YYYY-MM-DD)"}
+            },
+            "required": ["desde", "hasta"]
+        }
+    ),
+    Tool(
+        name="eliminar_evento",
+        description="Elimina (desactiva) un evento del calendario",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "evento_id": {"type": "integer", "description": "ID del evento"}
+            },
+            "required": ["evento_id"]
+        }
+    ),
 ]
 
 
@@ -328,6 +385,42 @@ async def call_tool(name: str, arguments: dict):
     elif name == "actualizar_cliente":
         body = {k: v for k, v in arguments.items() if k != "cliente_id" and v is not None}
         result = await call_api("PATCH", f"/clientes/{arguments['cliente_id']}", json=body)
+    
+    # ── Calendario handlers ───────────────────────────
+    elif name == "crear_evento":
+        body = {
+            "titulo": arguments["titulo"],
+            "descripcion": arguments.get("descripcion"),
+            "fecha_evento": arguments["fecha_evento"],
+            "hora_evento": arguments.get("hora_evento"),
+            "duracion_min": arguments.get("duracion_min", 60),
+            "entidad_tipo": arguments.get("entidad_tipo"),
+            "entidad_nombre": arguments.get("entidad_nombre"),
+            "cliente_nombre": arguments.get("cliente_nombre"),
+            "ubicacion": arguments.get("ubicacion"),
+            "color": arguments.get("color", "#3B82F6"),
+            "estado": arguments.get("estado", "pendiente")
+        }
+        result = await call_api("POST", "/calendario", json=body)
+    
+    elif name == "listar_eventos":
+        params = {}
+        if arguments.get("fecha"):
+            params["fecha"] = arguments["fecha"]
+        if arguments.get("entidad_tipo"):
+            params["entidad_tipo"] = arguments["entidad_tipo"]
+        if arguments.get("estado"):
+            params["estado"] = arguments["estado"]
+        result = await call_api("GET", "/calendario", params=params)
+    
+    elif name == "eventos_por_rango":
+        result = await call_api("GET", "/calendario/rango", params={
+            "desde": arguments["desde"],
+            "hasta": arguments["hasta"]
+        })
+    
+    elif name == "eliminar_evento":
+        result = await call_api("DELETE", f"/calendario/{arguments['evento_id']}")
     
     else:
         result = {"error": f"Tool '{name}' no encontrado"}

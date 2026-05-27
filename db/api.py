@@ -82,6 +82,23 @@ class TiempoCreate(BaseModel):
     horas: float
     descripcion: Optional[str] = None
 
+class CalendarioCreate(BaseModel):
+    titulo: str
+    descripcion: Optional[str] = None
+    fecha_evento: str
+    hora_evento: Optional[str] = None
+    hora_fin: Optional[str] = None
+    duracion_min: int = 60
+    entidad_tipo: Optional[str] = None
+    entidad_nombre: Optional[str] = None
+    entidad_id: Optional[int] = None
+    cliente_nombre: Optional[str] = None
+    cliente_id: Optional[int] = None
+    ubicacion: Optional[str] = None
+    estado: str = "pendiente"
+    color: str = "#3B82F6"
+    notas: Optional[str] = None
+
 
 # ══════════════════════════════════════════════════════
 # CLIENTES
@@ -352,6 +369,105 @@ def crear_material(data: MaterialCreate):
         new_id = cur.fetchone()[0]
         conn.commit()
         return {"id": new_id, "mensaje": "Material creado"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# CALENDARIO
+# ══════════════════════════════════════════════════════
+
+@app.get("/api/calendario")
+def listar_eventos(fecha: str = None, entidad_tipo: str = None, estado: str = None):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        where = ["activo = TRUE"]
+        params = []
+        if fecha:
+            where.append("fecha_evento = %s")
+            params.append(fecha)
+        if entidad_tipo:
+            where.append("entidad_tipo = %s")
+            params.append(entidad_tipo)
+        if estado:
+            where.append("estado = %s")
+            params.append(estado)
+        sql = f"SELECT * FROM calendario WHERE {' AND '.join(where)} ORDER BY fecha_evento, hora_evento"
+        cur.execute(sql, params)
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.get("/api/calendario/rango")
+def eventos_por_rango(desde: str, hasta: str):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT * FROM calendario
+            WHERE activo = TRUE AND fecha_evento >= %s AND fecha_evento <= %s
+            ORDER BY fecha_evento, hora_evento
+        """, (desde, hasta))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/calendario")
+def crear_evento(data: CalendarioCreate):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO calendario (titulo, descripcion, fecha_evento, hora_evento,
+                hora_fin, duracion_min, entidad_tipo, entidad_nombre, entidad_id,
+                cliente_nombre, cliente_id, ubicacion, estado, color, notas)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            data.titulo, data.descripcion, data.fecha_evento, data.hora_evento,
+            data.hora_fin, data.duracion_min, data.entidad_tipo, data.entidad_nombre,
+            data.entidad_id, data.cliente_nombre, data.cliente_id, data.ubicacion,
+            data.estado, data.color, data.notas
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "mensaje": "Evento creado"}
+    finally:
+        conn.close()
+
+@app.patch("/api/calendario/{evento_id}")
+def actualizar_evento(evento_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if v is not None:
+                sets.append(f"{k} = %s")
+                vals.append(v)
+        if not sets:
+            raise HTTPException(400, "Sin campos para actualizar")
+        vals.append(evento_id)
+        cur.execute(f"UPDATE calendario SET {', '.join(sets)}, fecha_actualizacion = NOW() WHERE id = %s", vals)
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Evento no encontrado")
+        return {"mensaje": "Evento actualizado"}
+    finally:
+        conn.close()
+
+@app.delete("/api/calendario/{evento_id}")
+def eliminar_evento(evento_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE calendario SET activo = FALSE, fecha_actualizacion = NOW() WHERE id = %s", (evento_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Evento no encontrado")
+        return {"mensaje": "Evento eliminado"}
     finally:
         conn.close()
 
