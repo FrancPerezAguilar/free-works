@@ -213,6 +213,62 @@ TOOLS = [
             "required": ["cliente_id"]
         }
     ),
+    Tool(
+        name="listar_comentarios_trabajo",
+        description="Lista los comentarios de un trabajo",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "trabajo_id": {"type": "integer", "description": "ID del trabajo"}
+            },
+            "required": ["trabajo_id"]
+        }
+    ),
+    Tool(
+        name="añadir_comentario_trabajo",
+        description="Añade un comentario al histórico de un trabajo",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "trabajo_id": {"type": "integer", "description": "ID del trabajo"},
+                "contenido": {"type": "string", "description": "Contenido del comentario"},
+                "autor": {"type": "string", "description": "Autor del comentario (default: Usuario)"}
+            },
+            "required": ["trabajo_id", "contenido"]
+        }
+    ),
+    Tool(
+        name="listar_comentarios",
+        description="Lista los comentarios de cualquier entidad (trabajo, cliente, presupuesto, factura, oportunidad, material, gasto)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_type": {
+                    "type": "string",
+                    "description": "Tipo de entidad (trabajo, cliente, presupuesto, factura, oportunidad, material, gasto)"
+                },
+                "entity_id": {"type": "integer", "description": "ID de la entidad"}
+            },
+            "required": ["entity_type", "entity_id"]
+        }
+    ),
+    Tool(
+        name="añadir_comentario",
+        description="Añade un comentario a cualquier entidad (trabajo, cliente, presupuesto, factura, oportunidad, material, gasto)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_type": {
+                    "type": "string",
+                    "description": "Tipo de entidad (trabajo, cliente, presupuesto, factura, oportunidad, material, gasto)"
+                },
+                "entity_id": {"type": "integer", "description": "ID de la entidad"},
+                "contenido": {"type": "string", "description": "Contenido del comentario"},
+                "autor": {"type": "string", "description": "Autor del comentario (default: Usuario)"}
+            },
+            "required": ["entity_type", "entity_id", "contenido"]
+        }
+    ),
     # ── Calendario ─────────────────────────────────────
     Tool(
         name="crear_evento",
@@ -305,7 +361,10 @@ TOOLS = [
                 "base_imponible": {"type": "number", "description": "Base imponible"},
                 "iva": {"type": "number", "description": "IVA"},
                 "total": {"type": "number", "description": "Total"},
-                "estado": {"type": "string", "description": "Estado (borrador, pendiente, aceptado)", "default": "borrador"}
+                "estado": {"type": "string", "description": "Estado (borrador, pendiente, aceptado)", "default": "borrador"},
+                "validez_dias": {"type": "integer", "description": "Validez del presupuesto en días (default: 30)"},
+                "condiciones_pago": {"type": "string", "description": "Condiciones de pago (ej: Al contado, Transferencia 30 días)"},
+                "notas": {"type": "string", "description": "Notas adicionales"}
             },
             "required": ["titulo"]
         }
@@ -320,6 +379,33 @@ TOOLS = [
                 "estado": {"type": "string", "description": "Nuevo estado (borrador, pendiente, aceptado, rechazado, vencido)"}
             },
             "required": ["presupuesto_id", "estado"]
+        }
+    ),
+    Tool(
+        name="listar_lineas_presupuesto",
+        description="Lista las líneas de un presupuesto",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "presupuesto_id": {"type": "integer", "description": "ID del presupuesto"}
+            },
+            "required": ["presupuesto_id"]
+        }
+    ),
+    Tool(
+        name="añadir_linea_presupuesto",
+        description="Añade una línea (partida) a un presupuesto",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "presupuesto_id": {"type": "integer", "description": "ID del presupuesto"},
+                "descripcion": {"type": "string", "description": "Descripción de la línea"},
+                "cantidad": {"type": "number", "description": "Cantidad (default: 1)"},
+                "unidad": {"type": "string", "description": "Unidad de medida (default: ud)"},
+                "precio_unitario": {"type": "number", "description": "Precio unitario"},
+                "importe": {"type": "number", "description": "Importe total de la línea"}
+            },
+            "required": ["presupuesto_id", "descripcion"]
         }
     ),
 ]
@@ -437,7 +523,28 @@ async def call_tool(name: str, arguments: dict):
     elif name == "actualizar_cliente":
         body = {k: v for k, v in arguments.items() if k != "cliente_id" and v is not None}
         result = await call_api("PATCH", f"/clientes/{arguments['cliente_id']}", json=body)
-    
+
+    # ── Comentarios handlers ──────────────────────────
+    elif name == "listar_comentarios_trabajo":
+        result = await call_api("GET", f"/trabajos/{arguments['trabajo_id']}/comentarios")
+
+    elif name == "añadir_comentario_trabajo":
+        body = {
+            "contenido": arguments["contenido"],
+            "autor": arguments.get("autor", "Usuario")
+        }
+        result = await call_api("POST", f"/trabajos/{arguments['trabajo_id']}/comentarios", json=body)
+
+    elif name == "listar_comentarios":
+        result = await call_api("GET", f"/comentarios/{arguments['entity_type']}/{arguments['entity_id']}")
+
+    elif name == "añadir_comentario":
+        body = {
+            "contenido": arguments["contenido"],
+            "autor": arguments.get("autor", "Usuario")
+        }
+        result = await call_api("POST", f"/comentarios/{arguments['entity_type']}/{arguments['entity_id']}", json=body)
+
     # ── Calendario handlers ───────────────────────────
     elif name == "crear_evento":
         body = {
@@ -493,7 +600,10 @@ async def call_tool(name: str, arguments: dict):
             "base_imponible": arguments.get("base_imponible", 0),
             "iva": arguments.get("iva", 0),
             "total": arguments.get("total", 0),
-            "estado": arguments.get("estado", "borrador")
+            "estado": arguments.get("estado", "borrador"),
+            "validez_dias": arguments.get("validez_dias", 30),
+            "condiciones_pago": arguments.get("condiciones_pago"),
+            "notas": arguments.get("notas")
         }
         result = await call_api("POST", "/presupuestos", json=body)
     
@@ -501,6 +611,19 @@ async def call_tool(name: str, arguments: dict):
         result = await call_api("PATCH", f"/presupuestos/{arguments['presupuesto_id']}", json={
             "estado": arguments["estado"]
         })
+
+    elif name == "listar_lineas_presupuesto":
+        result = await call_api("GET", f"/presupuestos/{arguments['presupuesto_id']}/lineas")
+
+    elif name == "añadir_linea_presupuesto":
+        body = {
+            "descripcion": arguments["descripcion"],
+            "cantidad": arguments.get("cantidad", 1),
+            "unidad": arguments.get("unidad", "ud"),
+            "precio_unitario": arguments.get("precio_unitario", 0),
+            "importe": arguments.get("importe", 0)
+        }
+        result = await call_api("POST", f"/presupuestos/{arguments['presupuesto_id']}/lineas", json=body)
     
     else:
         result = {"error": f"Tool '{name}' no encontrado"}

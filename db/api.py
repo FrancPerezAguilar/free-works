@@ -224,6 +224,8 @@ def obtener_trabajo(trabajo_id: int):
         t["tiempos"] = [serialize_dict(r) for r in cur.fetchall()]
         cur.execute("SELECT * FROM trabajo_materiales WHERE trabajo_id = %s", (trabajo_id,))
         t["materiales"] = [serialize_dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM comentarios WHERE entity_type = 'trabajo' AND entity_id = %s ORDER BY fecha_creacion ASC", (trabajo_id,))
+        t["comentarios"] = [serialize_dict(r) for r in cur.fetchall()]
 
         return t
     finally:
@@ -349,6 +351,60 @@ def tareas_por_fecha(fecha: str):
             ORDER BY tc.hora_programada
         """, (fecha,))
         return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+# ── Comentarios genéricos (todas las entidades) ─────
+
+@app.get("/api/comentarios/{entity_type}/{entity_id}")
+def listar_comentarios(entity_type: str, entity_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM comentarios WHERE entity_type = %s AND entity_id = %s ORDER BY fecha_creacion ASC", (entity_type, entity_id))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/comentarios/{entity_type}/{entity_id}")
+def anadir_comentario(entity_type: str, entity_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO comentarios (entity_type, entity_id, autor, contenido)
+            VALUES (%s,%s,%s,%s)
+        """, (entity_type, entity_id, data.get("autor", "Usuario"), data["contenido"]))
+        conn.commit()
+        return {"mensaje": "Comentario añadido"}
+    finally:
+        conn.close()
+
+
+# ── Comentarios en trabajos (backwards compat) ──────
+
+@app.get("/api/trabajos/{trabajo_id}/comentarios")
+def listar_comentarios_trabajo(trabajo_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM comentarios WHERE entity_type = 'trabajo' AND entity_id = %s ORDER BY fecha_creacion ASC", (trabajo_id,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/trabajos/{trabajo_id}/comentarios")
+def anadir_comentario_trabajo(trabajo_id: int, data: dict):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO comentarios (entity_type, entity_id, autor, contenido)
+            VALUES ('trabajo',%s,%s,%s)
+        """, (trabajo_id, data.get("autor", "Usuario"), data["contenido"]))
+        conn.commit()
+        return {"mensaje": "Comentario añadido"}
     finally:
         conn.close()
 

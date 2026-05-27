@@ -304,12 +304,20 @@ CREATE TABLE IF NOT EXISTS trabajo_materiales (
     trabajo_id          INT NOT NULL REFERENCES trabajos(id) ON DELETE CASCADE,
     material_id         INT REFERENCES materiales(id) ON DELETE RESTRICT,
 
-    material_nombre     VARCHAR(255),
-    cantidad_usada      NUMERIC(10,2) NOT NULL,
-    unidad              VARCHAR(20),
-    precio_unitario     NUMERIC(12,2) DEFAULT 0,
-    subtotal            NUMERIC(12,2) DEFAULT 0,
-    notas               TEXT
+    cantidad            NUMERIC(10,2) DEFAULT 1,
+    precio_unitario     NUMERIC(10,2) DEFAULT 0,
+    importe             NUMERIC(10,2) DEFAULT 0,
+    descripcion         TEXT
+);
+
+CREATE TABLE IF NOT EXISTS trabajo_comentarios (
+    id                  SERIAL PRIMARY KEY,
+    trabajo_id          INT NOT NULL REFERENCES trabajos(id) ON DELETE CASCADE,
+    uuid                UUID DEFAULT uuid_generate_v4(),
+
+    autor               TEXT NOT NULL,
+    contenido           TEXT NOT NULL,
+    fecha_creacion      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS presupuesto_lineas (
@@ -332,6 +340,17 @@ CREATE TABLE IF NOT EXISTS factura_lineas (
     unidad              VARCHAR(20),
     precio_unitario     NUMERIC(12,2) DEFAULT 0,
     importe             NUMERIC(12,2) DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS comentarios (
+    id                  SERIAL PRIMARY KEY,
+    uuid                UUID DEFAULT uuid_generate_v4(),
+
+    entity_type         VARCHAR(50) NOT NULL,
+    entity_id           INT NOT NULL,
+    autor               TEXT NOT NULL,
+    contenido           TEXT NOT NULL,
+    fecha_creacion      TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
