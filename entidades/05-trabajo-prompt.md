@@ -134,15 +134,29 @@ campos:
     default: media
     descripcion: Nivel de prioridad para planificación y alertas.
 
+  # ── Oportunidad Asociada (CRM) ───────────────────────────
+  oportunidad_id:
+    tipo: uuid
+    fk: oportunidades.id
+    relacion: 1:1
+    nullable: true
+    descripcion: >
+      Oportunidad de CRM de la que deriva este trabajo.
+      Cuando una OPORTUNIDAD se acepta, se crea el trabajo
+      automáticamente y se vincula aquí.
+      Un trabajo puede tener o no una oportunidad asociada
+      (se puede crear trabajo directamente sin CRM).
+
   # ── Presupuesto Asociado ────────────────────────────────
   presupuesto_id:
     tipo: uuid
     fk: presupuestos.id
     relacion: 1:1
+    nullable: true
     descripcion: >
       Presupuesto vinculado a este trabajo.
-      Se crea o asocia antes de comenzar la obra.
-      Un presupuesto pertenece a un solo trabajo y viceversa.
+      Se hereda de la oportunidad cuando se acepta,
+      o se puede crear trabajo con presupuesto directo.
       El presupuesto define el precio pactado, desglose de materiales
       y mano de obra estimada antes de ejecutar.
 

@@ -1,10 +1,12 @@
-# Prompt: Entidad PRESUPUESTO — Plataforma AI-first para Autónomos
+# Prompt: Entidad PRESUPUESTO — Plataforma AI-first para Autónomos (Hijo de OPORTUNIDAD)
 
 ## Instrucción principal
 
 Eres un arquitecto de software especializado en plataformas AI-first para autónomos españoles. Tu tarea es diseñar la entidad **PRESUPUESTO** completa, incluyendo su esquema YAML, migración PostgreSQL, validaciones, lógica de negocio y relaciones con otras entidades.
 
 El contexto es un autónomo español (electricista) que gestiona su negocio desde una plataforma conversacional donde la IA interpreta lenguaje natural y ejecuta acciones sobre datos estructurados.
+
+**IMPORTANTE — Contexto de workflow:** El PRESUPUESTO vive dentro de una OPORTUNIDAD (CRM). Una oportunidad puede tener uno o varios presupuestos (versiones, variantes). El presupuesto no existe de forma independiente — siempre pertenece a una oportunidad. El flujo completo es: CLIENTE → OPORTUNIDAD → PRESUPUESTO(S) → aceptación → TRABAJO → FACTURA.
 
 ---
 
@@ -26,13 +28,19 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
   - `facturado` — Se ha generado factura derivada.
 - `version`: Integer. Por defecto 1. Se incrementa si se modifica un presupuesto enviado.
 
-### 2. Referencia al cliente
+### 2. Referencia a la oportunidad (CRM)
+
+- `oportunidad_id`: UUID, clave foránea → entidad `OPORTUNIDAD`. **Obligatorio.** Todo presupuesto pertenece a una oportunidad.
+- La oportunidad padre contiene el cliente, el seguimiento comercial y el flujo de aceptación/rechazo.
+- El presupuesto hereda el `cliente_id` de la oportunidad, pero también lo almacena directamente para consultas rápidas y snapshot histórico.
+
+### 3. Referencia al cliente
 
 - `cliente_id`: UUID, clave foránea → entidad `CLIENTE`. Obligatorio.
 - Se almacena además una **snapshot** de datos clave del cliente al momento de emisión:
   - `cliente_snapshot`: JSONB con `{nombre, nif, direccion, email, telefono}`. Esto preserva los datos históricos aunque el cliente se modifique después.
 
-### 3. Desglose de conceptos (líneas de detalle)
+### 4. Desglose de conceptos (líneas de detalle)
 
 - `lineas`: Array de objetos. Mínimo 1 línea. Cada línea contiene:
   - `id`: UUID, generado automáticamente.
@@ -48,7 +56,7 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
   - `subtotal`: Decimal(10,2). Calculado: `(cantidad × precio_unitario) - descuento_importe`.
   - `notas`: String, opcional. Nota interna de la línea (no se muestra al cliente).
 
-### 4. Materiales (sublistas dentro de líneas)
+### 5. Materiales (sublistas dentro de líneas)
 
 - `materiales`: Array de objetos, opcional, asociado a una línea de tipo `material` o como detalle de una línea de tipo `servicio`. Cada material:
   - `id`: UUID.
@@ -62,7 +70,7 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
   - `proveedor`: String, opcional.
   - `incluido_en_precio`: Boolean. Default `true`. Si `true`, el coste del material ya está incluido en el precio de la línea padre. Si `false`, se desglosa aparte para el cliente.
 
-### 5. Mano de obra
+### 6. Mano de obra
 
 - `mano_de_obra`: Array de objetos, opcional, asociado a líneas de tipo `servicio`. Cada registro:
   - `id`: UUID.
@@ -74,7 +82,7 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
   - `importe`: Decimal(10,2). Calculado: `horas × tarifa_hora`.
   - `tecnico_asignado`: String, opcional. Nombre del técnico si hay equipo.
 
-### 6. Impuestos
+### 7. Impuestos
 
 - `iva_porcentaje`: Decimal(5,2). Default: `21.00`. Tipo de IVA general español. Puede reducirse (10%, 4%) según tipo de obra.
 - `iva_importe`: Decimal(10,2). Calculado: `base_imponible × (iva_porcentaje / 100)`.
@@ -82,7 +90,7 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
 - `irpf_porcentaje`: Decimal(5,2). Default: `15.00`. Retención estándar IRPF para profesionales.
 - `irpf_importe`: Decimal(10,2). Calculado: `base_imponible × (irpf_porcentaje / 100)` (solo si `irpf_aplicable = true`).
 
-### 7. Totales
+### 8. Totales
 
 - `base_imponible`: Decimal(12,2). Calculado: suma de `subtotal` de todas las líneas (incluyendo materiales desglosados si `incluido_en_precio = false`).
 - `total_descuentos`: Decimal(12,2). Calculado: suma de todos los `descuento_importe`.
@@ -93,7 +101,7 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
 - `total`: Decimal(12,2). Calculado: `base_imponible + total_iva - total_irpf`.
 - `moneda`: String(3). Default: `EUR`. ISO 4217.
 
-### 8. Notas y condiciones
+### 9. Notas y condiciones
 
 - `notas_internas`: Texto. Solo visible para el autónomo. No se imprime en el PDF ni se envía al cliente.
 - `notas_cliente`: Texto. Visible en el documento enviado. Ej: "Incluye garantía de 2 años en materiales."
@@ -115,24 +123,24 @@ El contexto es un autónomo español (electricista) que gestiona su negocio desd
 
 ### 10. Relaciones con otras entidades
 
-#### 10.1 → CLIENTE (muchos a uno)
+#### 10.1 → OPORTUNIDAD (muchos a uno)
+- `oportunidad_id` → `OPORTUNIDAD.id`. **Obligatorio.**
+- Todo presupuesto pertenece a una oportunidad.
+- Una oportunidad puede tener múltiples presupuestos (versiones, variantes).
+- La oportunidad gestiona el flujo comercial: negociación, aceptación, pérdida.
+- El presupuesto hereda el cliente_id de la oportunidad.
+
+#### 10.2 → CLIENTE (muchos a uno)
 - `cliente_id` → `CLIENTE.id`.
-- Un presupuesto pertenece a un solo cliente.
-- Un cliente puede tener múltiples presupuestos.
+- Un presupuesto pertenece a un solo cliente (heredado de la oportunidad).
+- Un cliente puede tener múltiples presupuestos a través de distintas oportunidades.
 - Al crear el presupuesto, se captura snapshot del cliente.
 
-#### 10.2 → TRABAJO (uno a uno, opcional)
+#### 10.3 → TRABAJO (uno a uno, opcional)
 - `trabajo_id`: UUID, FK → `TRABAJO.id`. Nullable.
-- Cuando un presupuesto es aceptado, puede generar un trabajo (orden de trabajo).
-- El trabajo hereda: cliente, líneas, materiales, dirección del cliente.
+- Cuando una oportunidad se acepta, se crea un trabajo que hereda los datos del presupuesto activo.
+- El trabajo hereda: cliente, líneas, materiales, dirección.
 - Un presupuesto solo puede vincularse a un trabajo.
-
-#### 10.3 → FACTURA (uno a uno, opcional)
-- `factura_id`: UUID, FK → `FACTURA.id`. Nullable.
-- Cuando el trabajo se completa, se genera una factura derivada del presupuesto.
-- La factura hereda: desglose, impuestos, totales, condiciones de pago.
-- Un presupuesto solo puede generar una factura.
-- Transición de estado: `aceptado` → `facturado` al generar la factura.
 
 #### 10.4 → PRESUPUESTO_VERSION (uno a muchos)
 - Si se modifica un presupuesto enviado, se crea una nueva versión manteniendo historial.
@@ -434,7 +442,7 @@ Cuando el autónomo interactúa con la plataforma por voz o texto, la IA debe:
 
 5. **Seguimiento**: "¿Qué presupuestos están próximos a vencer?" → Filtra por `fecha_creacion + validez_dias` dentro de los próximos 7 días.
 
-6. **Convertir**: "María ha aceptado el presupuesto, créame el trabajo" → Cambia estado a `aceptado`, crea TRABAJO heredando datos.
+6. **Ciclo con oportunidad**: "El presupuesto de la OP-0042 (María García) está aceptado" → La IA actualiza la OPORTUNIDAD a estado aceptada, y desde la oportunidad se crea el TRABAJO heredando los datos del presupuesto activo. El presupuesto queda como histórico dentro de la oportunidad.
 
 7. **Duplicar**: "Copia el último presupuesto para otro cliente" → Duplica en `borrador` con nuevo `numero` y `cliente_id`.
 

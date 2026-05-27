@@ -11,6 +11,8 @@ La plataforma utiliza:
 - **Base de datos:** PostgreSQL
 - **Enfoque:** AI-first (la IA gestiona, genera, valida y sugiere facturas)
 
+**Contexto de workflow:** La factura se genera típicamente al completar un TRABAJO. El trabajo puede derivar de una OPORTUNIDAD (CRM) aceptada, que contenía el PRESUPUESTO. Flujo completo: CLIENTE → OPORTUNIDAD → PRESUPUESTO(S) → aceptación → TRABAJO → FACTURA. También se puede crear una factura directamente para un cliente sin seguir el flujo completo.
+
 Debes generar un diseño completo, detallado y listo para implementar que cumpla con la **normativa fiscal española vigente**, incluyendo el sistema **VeriFactu** (Real Decreto 1007/2023 y Orden HAC/1177/2024).
 
 ---
@@ -115,6 +117,7 @@ Array `lineas_factura[]` con cada línea conteniendo:
 
 ### 8. Relaciones con Otras Entidades
 
+- `oportunidad_id`: UUID (FK → `oportunidades`, nullable) — Oportunidad de CRM de la que deriva
 - `presupuesto_id`: UUID (FK → `presupuestos`, nullable) — Presupuesto del que deriva
 - `trabajo_id`: UUID (FK → `trabajos`, nullable) — Trabajo/orden de trabajo asociado
 - `cliente_id`: UUID (FK → `clientes`)
