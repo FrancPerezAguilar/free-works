@@ -1,0 +1,55 @@
+id: trabajo-003
+uuid: dcf6b486-3db0-42d2-9d06-58b357959ab9
+codigo_trabajo: ''
+titulo: Instalación caldera
+descripcion: Instalación de caldera en el domicilio de la cliente. Incluye conexión
+  eléctrica, gas y evacuación de humos.
+cliente_id: cliente-001
+cliente_nombre: María García
+oportunidad_id: ''
+presupuesto_id: ''
+factura_id: ''
+direccion_obra:
+  calle: Calle Lleida
+  numero: '43'
+  piso_puerta: Puerta A
+  codigo_postal: 08680
+  municipio: Gironella
+  provincia: Barcelona
+  coordenadas:
+    lat: null
+    lng: null
+  notas_acceso: ''
+fecha_creacion: '2026-05-27T12:52:55.584059+00:00'
+fecha_inicio: ''
+fecha_fin_estimada: ''
+fecha_fin_real: ''
+estado: pendiente
+prioridad: media
+materiales: []
+tiempos: []
+tecnicos: []
+checklist:
+- id: 6d661cf1-6e52-4970-a96d-81a372202379
+  descripcion: Llamar a María García para entregar oferta de la caldera
+  completada: false
+  fecha_programada: '2026-05-29'
+  hora_programada: '12:00'
+  fecha_completada: null
+  notas: Entregar presupuesto de instalación de caldera
+fotos: []
+notas: []
+conformidad:
+  firma_cliente: ''
+  nombre_firmante: ''
+  dni_firmante: ''
+  fecha_firma: ''
+  acepta_trabajo: false
+  observaciones: ''
+total_horas: 0.0
+coste_materiales: 0.0
+coste_mano_obra: 0.0
+coste_total: 0.0
+activo: true
+fecha_modificacion: '2026-05-27T12:52:55.584098+00:00'
+fecha_actualizacion: '2026-05-27T12:54:07.908203+00:00'

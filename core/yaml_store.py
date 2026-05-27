@@ -17,6 +17,7 @@ import os
 import uuid
 import yaml
 import json
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -68,9 +69,23 @@ def _next_sequence(entidad: str) -> int:
 
 
 def _generar_id(entidad: str) -> str:
-    """Genera un ID legible: {entidad}-{NNN} (ej: cliente-001)."""
+    """Genera un ID legible: {prefijo}-{NNN} (ej: cliente-001, material-001)."""
     seq = _next_sequence(entidad)
-    return f"{entidad.rstrip('s')}-{seq:03d}"
+    prefijo = _singular(entidad)
+    return f"{prefijo}-{seq:03d}"
+
+
+def _singular(plural: str) -> str:
+    """Convierte plural español a singular para IDs."""
+    PLURALES = {
+        "clientes": "cliente",
+        "trabajos": "trabajo",
+        "materiales": "material",
+        "presupuestos": "presupuesto",
+        "facturas": "factura",
+        "oportunidades": "oportunidad",
+    }
+    return PLURALES.get(plural, plural.rstrip("s"))
 
 
 def _slugify(text: str) -> str:
@@ -80,6 +95,23 @@ def _slugify(text: str) -> str:
     text = re.sub(r"[^a-z0-9\s-]", "", text)
     text = re.sub(r"[\s-]+", "-", text)
     return text[:60]
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """
+    Merge profundo de diccionarios.
+    
+    - Si ambas claves son dicts, merge recursivo.
+    - Si la clave en override es None o "", se queda el valor de base.
+    - Si la clave en override tiene valor, se sobreescribe.
+    """
+    resultado = copy.deepcopy(base)
+    for k, v in override.items():
+        if k in resultado and isinstance(resultado[k], dict) and isinstance(v, dict):
+            resultado[k] = _deep_merge(resultado[k], v)
+        elif v is not None and v != "":
+            resultado[k] = copy.deepcopy(v)
+    return resultado
 
 
 def _archivo_path(entidad: str, entity_id: str) -> Path:
@@ -94,7 +126,7 @@ class YamlStore:
 
     def crear(self, entidad: str, datos: dict) -> dict:
         """
-        Crea una nueva entidad.
+        Crea una nueva entidad (método directo, sin plantilla).
         
         Args:
             entidad: Nombre de la entidad (ej: "clientes", "trabajos")
@@ -116,6 +148,54 @@ class YamlStore:
         }
         
         # Escribir archivo
+        ruta = _archivo_path(entidad, entity_id)
+        with open(ruta, "w", encoding="utf-8") as f:
+            yaml.dump(registro, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        
+        return registro
+
+    def crear_desde_plantilla(self, entidad: str, datos: dict) -> dict:
+        """
+        Crea una nueva entidad a partir de su plantilla YAML.
+        
+        La plantilla garantiza que TODOS los campos existan, aunque estén
+        vacíos. Esto evita que el esquema varíe entre registros y rompa la API.
+        
+        Args:
+            entidad: Nombre de la entidad en plural (ej: "clientes", "trabajos", "materiales")
+            datos: Diccionario con los campos a rellenar (se hace merge sobre la plantilla)
+            
+        Returns:
+            dict: La entidad creada con todos los campos de la plantilla + los datos proporcionados
+        """
+        # Mapa plural → singular para buscar la plantilla
+        singular = _singular(entidad)
+        
+        # Ruta de la plantilla: data/templates/{singular}.yaml
+        template_path = DATA_DIR.parent / "data" / "templates" / f"{singular}.yaml"
+        
+        if not template_path.exists():
+            raise YamlStoreError(
+                f"Plantilla para '{singular}' no encontrada en {template_path}. "
+                f"Plantillas disponibles: {', '.join(sorted(p.stem for p in (DATA_DIR.parent / 'data' / 'templates').glob('*.yaml')))}"
+            )
+        
+        # Cargar plantilla
+        with open(template_path, "r", encoding="utf-8") as f:
+            plantilla = yaml.safe_load(f) or {}
+        
+        # Generar ID y metadatos (usando el nombre plural como directorio)
+        entity_id = _generar_id(entidad)
+        
+        # Merge profundo: plantilla base + datos proporcionados
+        registro = _deep_merge(plantilla, datos)
+        registro["id"] = entity_id
+        registro["uuid"] = str(uuid.uuid4())
+        registro["fecha_creacion"] = now()
+        registro["fecha_modificacion"] = now()
+        registro["activo"] = True
+        
+        # Escribir archivo en data/{entidad}/{entity_id}.yaml
         ruta = _archivo_path(entidad, entity_id)
         with open(ruta, "w", encoding="utf-8") as f:
             yaml.dump(registro, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

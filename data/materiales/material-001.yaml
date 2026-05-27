@@ -1,0 +1,37 @@
+id: material-001
+uuid: 34408fca-7dc5-4916-bc3e-fc550ec45bbb
+nombre: Cable AFU-MEX 3G2.5mm²
+descripcion: Cable multiconductor AFU-MEX, 3 hilos de 2.5mm² de sección. Para instalaciones
+  eléctricas en cocina.
+categoria: cables
+subcategoria: cable_multipolar
+tags:
+- cable
+- 3x2.5
+- AFU-MEX
+- multiconductor
+proveedor:
+  id: ''
+  nombre: ''
+  referencia_cliente: ''
+precio_unitario: 0.0
+iva_porcentaje: 21.0
+precio_con_iva: 0.0
+moneda: EUR
+historial_precios: []
+unidad_medida: m
+stock_actual: 0
+stock_minimo: 0
+stock_maximo: 0
+ubicacion_almacen: ''
+referencia_fabricante: ''
+codigo_barras: ''
+fabricante: AFU-MEX
+ficha_tecnica:
+  url: ''
+  formato: ''
+fotos: []
+activo: true
+notas: Registrado desde el trabajo de instalación eléctrica cocina (María García)
+fecha_creacion: '2026-05-27T12:50:29.791141+00:00'
+fecha_modificacion: '2026-05-27T12:50:29.791169+00:00'

@@ -1,0 +1,71 @@
+# ── Plantilla Trabajo ─────────────────────────────────────
+# Todos los campos definidos. Los valores vacíos se rellenan
+# posteriormente por la IA o por entrada del usuario.
+# ───────────────────────────────────────────────────────────
+
+# ── Identificación ────────────────────────────────────────
+id: ""                          # Se genera automáticamente
+uuid: ""                        # UUID v4
+codigo_trabajo: ""              # TRB-AAAA-NNNN
+titulo: ""
+descripcion: ""
+
+# ── Relaciones ────────────────────────────────────────────
+cliente_id: ""
+cliente_nombre: ""
+
+# Si viene de CRM / presupuesto:
+oportunidad_id: ""
+presupuesto_id: ""
+factura_id: ""
+
+# ── Dirección de la Obra ──────────────────────────────────
+direccion_obra:
+  calle: ""
+  numero: ""
+  piso_puerta: ""
+  codigo_postal: ""
+  municipio: ""
+  provincia: ""
+  coordenadas:
+    lat: null
+    lng: null
+  notas_acceso: ""
+
+# ── Fechas ────────────────────────────────────────────────
+fecha_creacion: ""
+fecha_inicio: ""
+fecha_fin_estimada: ""
+fecha_fin_real: ""
+
+# ── Estado y Prioridad ────────────────────────────────────
+estado: "pendiente"             # pendiente | en_curso | completado | cancelado
+prioridad: "media"              # baja | media | alta | urgente
+
+# ── Ejecución ─────────────────────────────────────────────
+materiales: []                  # Array de { material_id, material_nombre, cantidad_usada, unidad, precio_unitario, subtotal, notas }
+                                # El material_id referencia al catálogo de materiales (entidad independiente).
+                                # Primero se crea el material en el catálogo, luego se referencia aquí.
+tiempos: []                     # Array de { id, fecha, hora_inicio, hora_fin, horas, descripcion }
+tecnicos: []                    # Array de { id, nombre, rol, fecha_asignacion }
+checklist: []                   # Array de { id, descripcion, completada, fecha_programada, hora_programada, fecha_completada, notas }
+fotos: []                       # Array de { id, url, descripcion, tipo, fecha }
+notas: []                       # Array de { id, contenido, fecha, tipo }
+
+# ── Conformidad del Cliente ───────────────────────────────
+conformidad:
+  firma_cliente: ""
+  nombre_firmante: ""
+  dni_firmante: ""
+  fecha_firma: ""
+  acepta_trabajo: false
+  observaciones: ""
+
+# ── Resúmenes Calculados ──────────────────────────────────
+total_horas: 0.0
+coste_materiales: 0.0
+coste_mano_obra: 0.0
+coste_total: 0.0
+
+# ── Metadatos ─────────────────────────────────────────────
+activo: true

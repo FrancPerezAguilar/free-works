@@ -1,0 +1,52 @@
+# ── Plantilla Presupuesto ─────────────────────────────────
+# Todos los campos definidos.
+# ───────────────────────────────────────────────────────────
+
+# ── Identificación ────────────────────────────────────────
+id: ""
+uuid: ""
+codigo_presupuesto: ""          # PRE-AAAA-NNNN
+titulo: ""
+descripcion: ""
+
+# ── Relaciones ────────────────────────────────────────────
+cliente_id: ""
+cliente_nombre: ""
+oportunidad_id: ""
+trabajo_id: ""
+
+# ── Datos del Presupuesto ─────────────────────────────────
+fecha_emision: ""
+fecha_validez: ""
+estado: "borrador"              # borrador | pendiente | aceptado | rechazado | vencido
+validez_dias: 30
+
+# ── Desglose ──────────────────────────────────────────────
+lineas: []                      # Array de { id, descripcion, cantidad, unidad, precio_unitario, importe }
+
+materiales_estimados: []        # Array de { id, nombre, cantidad, unidad, precio_unitario, importe }
+mano_obra_estimada: []          # Array de { id, descripcion, horas, tarifa_hora, importe }
+otros_gastos: []                # Array de { id, descripcion, importe }
+
+# ── Totales ───────────────────────────────────────────────
+base_imponible: 0.00
+iva: 0.00
+tipo_iva: 21.00
+retencion_irpf: 0.00
+total: 0.00
+
+# ── Condiciones ───────────────────────────────────────────
+condiciones_pago: ""
+plazo_entrega: ""
+notas: ""
+validez_oferta: 30
+
+# ── Historial ─────────────────────────────────────────────
+fecha_creacion: ""
+fecha_modificacion: ""
+fecha_aceptacion: ""
+fecha_rechazo: ""
+motivo_rechazo: ""
+
+# ── Metadatos ─────────────────────────────────────────────
+activo: true

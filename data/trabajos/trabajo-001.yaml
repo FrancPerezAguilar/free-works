@@ -1,0 +1,41 @@
+id: trabajo-001
+uuid: a4344eb3-99e5-4ecf-b736-899ea3ff2717
+fecha_creacion: '2026-05-27T12:27:08.762599+00:00'
+activo: true
+titulo: Instalación eléctrica cocina
+descripcion: 'Instalación eléctrica completa en la cocina: nuevo punto de luz, enchufes
+  adicionales, circuito independiente para electrodomésticos y toma de tierra.'
+cliente_id: cliente-001
+cliente_nombre: María García
+direccion_obra:
+  calle: Calle Lleida
+  numero: '43'
+  piso_puerta: Puerta A
+  codigo_postal: 08680
+  municipio: Gironella
+  provincia: Barcelona
+  comunidad_autonoma: Cataluña
+  pais: España
+estado: pendiente
+prioridad: media
+checklist:
+- id: 837a4579-3eea-432a-be39-3af8b707ae2a
+  descripcion: Instalar encimera
+  completada: true
+  fecha_programada: '2026-05-29'
+  fecha_completada: '2026-05-27T12:30:44.869408+00:00'
+  notas: Instalación prevista para viernes
+fecha_actualizacion: '2026-05-27T12:50:29.798953+00:00'
+tiempos:
+- id: 15aa53e7-cf7a-4c8d-9b6a-dced0f650237
+  fecha: '2026-05-27'
+  horas: 2.0
+  descripcion: Trabajo previo en cocina - preparación para instalación eléctrica
+materiales:
+- material_id: material-001
+  material_nombre: Cable AFU-MEX 3 hilos 2.5mm²
+  cantidad_usada: 30
+  unidad: metros
+  precio_unitario: 0.0
+  subtotal: 0.0
+  notas: Cable para instalación eléctrica cocina
