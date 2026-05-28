@@ -45,6 +45,25 @@ def serialize(val):
 # ── Pydantic Models ───────────────────────────────────
 
 class ClienteCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "nombre": "María García",
+                    "apellidos": "López",
+                    "nif_cif": "12345678A",
+                    "tipo_cliente": "persona_fisica",
+                    "telefono_principal": "+34 612 345 678",
+                    "email": "maria@ejemplo.com",
+                    "direccion_calle": "Calle Lleida",
+                    "direccion_numero": "43",
+                    "direccion_municipio": "Gironella",
+                    "direccion_provincia": "Barcelona",
+                    "direccion_codigo_postal": "08680"
+                }
+            ]
+        }
+    }
     nombre: str
     apellidos: Optional[str] = None
     nif_cif: Optional[str] = None
@@ -58,6 +77,26 @@ class ClienteCreate(BaseModel):
     direccion_codigo_postal: Optional[str] = None
 
 class TrabajoCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "titulo": "Instalación eléctrica cocina",
+                    "descripcion": "Nuevo punto de luz, enchufes adicionales, circuito independiente para electrodomésticos y toma de tierra.",
+                    "cliente_id": 1,
+                    "cliente_nombre": "María García",
+                    "estado": "pendiente",
+                    "prioridad": "media",
+                    "obra_calle": "Calle Lleida",
+                    "obra_numero": "43",
+                    "obra_municipio": "Gironella",
+                    "obra_provincia": "Barcelona",
+                    "fecha_inicio": "2026-06-01",
+                    "fecha_fin_estimada": "2026-06-01"
+                }
+            ]
+        }
+    }
     titulo: str
     descripcion: Optional[str] = None
     cliente_id: Optional[int] = None
@@ -72,6 +111,20 @@ class TrabajoCreate(BaseModel):
     fecha_fin_estimada: Optional[str] = None
 
 class MaterialCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "nombre": "Cable AFUMEX 3 hilos 2.5mm²",
+                    "descripcion": "Cable unipolar de cobre para instalaciones eléctricas fijas",
+                    "categoria": "cables",
+                    "precio_unitario": 3.50,
+                    "unidad_medida": "m",
+                    "fabricante": "Prysmian"
+                }
+            ]
+        }
+    }
     nombre: str
     descripcion: Optional[str] = None
     categoria: Optional[str] = None
@@ -80,17 +133,61 @@ class MaterialCreate(BaseModel):
     fabricante: Optional[str] = None
 
 class ChecklistCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "descripcion": "Llamar a María García para confirmar visita",
+                    "fecha_programada": "2026-06-01",
+                    "hora_programada": "10:00",
+                    "notas": "Confirmar si está en casa"
+                }
+            ]
+        }
+    }
     descripcion: str
     fecha_programada: Optional[str] = None
     hora_programada: Optional[str] = None
     notas: Optional[str] = None
 
 class TiempoCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "fecha": "2026-05-28",
+                    "horas": 3.0,
+                    "descripcion": "Instalación encimera y trabajos eléctricos"
+                }
+            ]
+        }
+    }
     fecha: str
     horas: float
     descripcion: Optional[str] = None
 
 class CalendarioCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "titulo": "Instalación caldera - María García",
+                    "descripcion": "Conexión eléctrica, gas y evacuación de humos",
+                    "fecha_evento": "2026-05-29",
+                    "hora_evento": "12:00",
+                    "duracion_min": 150,
+                    "entidad_tipo": "trabajo",
+                    "entidad_nombre": "Instalación caldera",
+                    "entidad_id": 2,
+                    "cliente_nombre": "María García",
+                    "ubicacion": "C/ Lleida, 43 - Gironella",
+                    "estado": "confirmado",
+                    "color": "#F59E0B",
+                    "notas": "Llevar herramientas de gas"
+                }
+            ]
+        }
+    }
     titulo: str
     descripcion: Optional[str] = None
     fecha_evento: str
@@ -108,6 +205,27 @@ class CalendarioCreate(BaseModel):
     notas: Optional[str] = None
 
 class PresupuestoCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "titulo": "Reforma eléctrica cocina",
+                    "descripcion": "Instalación eléctrica completa: punto de luz, enchufes, circuito electrodomésticos y toma de tierra.",
+                    "cliente_id": 1,
+                    "cliente_nombre": "María García",
+                    "estado": "borrador",
+                    "validez_dias": 30,
+                    "base_imponible": 705.00,
+                    "iva": 148.05,
+                    "tipo_iva": 21.00,
+                    "retencion_irpf": 0,
+                    "total": 853.05,
+                    "condiciones_pago": "Transferencia 30 días",
+                    "notas": "Material y mano de obra incluidos"
+                }
+            ]
+        }
+    }
     titulo: str
     descripcion: Optional[str] = None
     cliente_id: Optional[int] = None
@@ -123,6 +241,25 @@ class PresupuestoCreate(BaseModel):
     notas: Optional[str] = None
 
 class OportunidadCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "titulo": "Instalación placas solares",
+                    "descripcion": "Cliente interesado en autoconsumo con 6 paneles e inversor",
+                    "cliente_id": 1,
+                    "cliente_nombre": "María García",
+                    "estado": "abierta",
+                    "origen": "recomendacion",
+                    "probabilidad_cierre": 60,
+                    "presupuesto_estimado": 4500.00,
+                    "fecha_contacto": "2026-05-28",
+                    "fecha_cierre_estimada": "2026-06-15",
+                    "notas_seguimiento": "Le enviaremos presupuesto detallado la próxima semana"
+                }
+            ]
+        }
+    }
     titulo: str
     descripcion: Optional[str] = None
     cliente_id: Optional[int] = None
@@ -136,6 +273,37 @@ class OportunidadCreate(BaseModel):
     notas_seguimiento: Optional[str] = None
 
 class FacturaCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tipo": "factura",
+                    "cliente_id": 1,
+                    "cliente_nombre": "María García",
+                    "nif_cif_cliente": "12345678A",
+                    "trabajo_id": 1,
+                    "presupuesto_id": 1,
+                    "fecha_emision": "2026-05-28",
+                    "fecha_vencimiento": "2026-06-27",
+                    "base_imponible": 705.00,
+                    "iva": 148.05,
+                    "tipo_iva": 21.00,
+                    "retencion_irpf": 0,
+                    "total": 853.05,
+                    "estado_pago": "pendiente",
+                    "forma_pago": "transferencia",
+                    "datos_bancarios_iban": "ES00 0000 0000 0000 0000 0000",
+                    "datos_bancarios_titular": "Franc Pérez",
+                    "regimen_iva": "general",
+                    "factura_direccion_calle": "Calle Lleida",
+                    "factura_direccion_numero": "43",
+                    "factura_direccion_codigo_postal": "08680",
+                    "factura_direccion_municipio": "Gironella",
+                    "factura_direccion_provincia": "Barcelona"
+                }
+            ]
+        }
+    }
     tipo: str = "factura"
     cliente_id: Optional[int] = None
     cliente_nombre: Optional[str] = None
