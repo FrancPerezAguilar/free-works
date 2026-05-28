@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
 import psycopg2.extras
@@ -1114,6 +1115,15 @@ def serialize_dict(d):
 @app.get("/health")
 def health():
     return {"status": "ok", "db": "postgresql", "version": "1.0.0"}
+
+
+# ══════════════════════════════════════════════════════
+# WEB APP (React SPA)
+# ══════════════════════════════════════════════════════
+
+WEB_DIST = os.path.join(os.path.dirname(__file__), "..", "web", "dist")
+if os.path.isdir(WEB_DIST):
+    app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
 
 
 if __name__ == "__main__":
