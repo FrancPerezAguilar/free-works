@@ -56,7 +56,7 @@ export default function PresupuestoList() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -64,7 +64,7 @@ export default function PresupuestoList() {
             placeholder="Buscar por título o cliente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="relative">
@@ -72,7 +72,7 @@ export default function PresupuestoList() {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="pl-10 pr-8 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+            className="pl-10 pr-8 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
           >
             {FILTROS_ESTADO.map((f) => (
               <option key={f.value} value={f.value}>
@@ -112,22 +112,23 @@ export default function PresupuestoList() {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
+          <div className="hidden md:block bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-1">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50">
-                  <th className="text-left p-3 font-medium">Título</th>
-                  <th className="text-left p-3 font-medium">Cliente</th>
-                  <th className="text-left p-3 font-medium">Estado</th>
-                  <th className="text-right p-3 font-medium">Base</th>
-                  <th className="text-right p-3 font-medium">Total</th>
-                  <th className="text-left p-3 font-medium">Fecha</th>
+                  <th className="text-left p-4 font-medium">Título</th>
+                  <th className="text-left p-4 font-medium">Cliente</th>
+                  <th className="text-left p-4 font-medium">Estado</th>
+                  <th className="text-right p-4 font-medium">Base</th>
+                  <th className="text-right p-4 font-medium">Total</th>
+                  <th className="text-left p-4 font-medium">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p) => (
                   <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="p-3">
+                    <td className="p-4">
                       <Link
                         to={`/presupuestos/${p.id}`}
                         className="text-blue-600 hover:underline font-medium"
@@ -135,26 +136,27 @@ export default function PresupuestoList() {
                         {p.titulo}
                       </Link>
                     </td>
-                    <td className="p-3">{p.cliente_nombre || "—"}</td>
-                    <td className="p-3">
+                    <td className="p-4">{p.cliente_nombre || "—"}</td>
+                    <td className="p-4">
                       <StatusBadge
                         estado={p.estado}
                         mapping={ESTADOS_PRESUPUESTO}
                       />
                     </td>
-                    <td className="p-3 text-right">
+                    <td className="p-4 text-right">
                       {formatCurrency(p.base_imponible)}
                     </td>
-                    <td className="p-3 text-right font-medium">
+                    <td className="p-4 text-right font-medium">
                       {formatCurrency(p.total)}
                     </td>
-                    <td className="p-3 text-gray-500">
+                    <td className="p-4 text-gray-500">
                       {formatDate(p.fecha_creacion)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Mobile cards */}

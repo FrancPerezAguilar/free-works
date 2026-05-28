@@ -57,7 +57,7 @@ export default function TrabajoList() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -65,7 +65,7 @@ export default function TrabajoList() {
             placeholder="Buscar por título, cliente o código..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="relative">
@@ -73,7 +73,7 @@ export default function TrabajoList() {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="pl-10 pr-8 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+            className="pl-10 pr-8 py-3 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
           >
             {FILTROS_ESTADO.map((f) => (
               <option key={f.value} value={f.value}>
@@ -110,26 +110,27 @@ export default function TrabajoList() {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
+          <div className="hidden md:block bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-1">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50">
-                  <th className="text-left p-3 font-medium">Código</th>
-                  <th className="text-left p-3 font-medium">Título</th>
-                  <th className="text-left p-3 font-medium">Cliente</th>
-                  <th className="text-left p-3 font-medium">Municipio</th>
-                  <th className="text-left p-3 font-medium">Estado</th>
-                  <th className="text-left p-3 font-medium">Prioridad</th>
-                  <th className="text-left p-3 font-medium">Inicio</th>
+                  <th className="text-left p-4 font-medium">Código</th>
+                  <th className="text-left p-4 font-medium">Título</th>
+                  <th className="text-left p-4 font-medium">Cliente</th>
+                  <th className="text-left p-4 font-medium">Municipio</th>
+                  <th className="text-left p-4 font-medium">Estado</th>
+                  <th className="text-left p-4 font-medium">Prioridad</th>
+                  <th className="text-left p-4 font-medium">Inicio</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((t) => (
                   <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="p-3 text-gray-500 text-xs font-mono">
+                    <td className="p-4 text-gray-500 text-xs font-mono">
                       {t.codigo_trabajo || "—"}
                     </td>
-                    <td className="p-3">
+                    <td className="p-4">
                       <Link
                         to={`/trabajos/${t.id}`}
                         className="text-blue-600 hover:underline font-medium"
@@ -137,12 +138,12 @@ export default function TrabajoList() {
                         {t.titulo}
                       </Link>
                     </td>
-                    <td className="p-3">{t.cliente_nombre || "—"}</td>
-                    <td className="p-3 text-gray-500">{t.obra_municipio || "—"}</td>
-                    <td className="p-3">
+                    <td className="p-4">{t.cliente_nombre || "—"}</td>
+                    <td className="p-4 text-gray-500">{t.obra_municipio || "—"}</td>
+                    <td className="p-4">
                       <StatusBadge estado={t.estado} mapping={ESTADOS_TRABAJO} />
                     </td>
-                    <td className="p-3">
+                    <td className="p-4">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
                           t.prioridad === "alta"
@@ -155,13 +156,14 @@ export default function TrabajoList() {
                         {t.prioridad || "media"}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-500">
+                    <td className="p-4 text-gray-500">
                       {t.fecha_inicio ? formatDate(t.fecha_inicio) : "—"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Mobile cards */}

@@ -45,14 +45,14 @@ export default function ClienteList() {
       />
 
       {/* Search */}
-      <div className="relative mb-4">
+      <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
           placeholder="Buscar por nombre, municipio o teléfono..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-10 pr-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -78,29 +78,30 @@ export default function ClienteList() {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
+          <div className="hidden md:block bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-1">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50">
-                  <th className="text-left p-3 font-medium">Nombre</th>
-                  <th className="text-left p-3 font-medium">NIF</th>
-                  <th className="text-left p-3 font-medium">Teléfono</th>
-                  <th className="text-left p-3 font-medium">Municipio</th>
-                  <th className="text-left p-3 font-medium">Estado</th>
+                  <th className="text-left p-4 font-medium">Nombre</th>
+                  <th className="text-left p-4 font-medium">NIF</th>
+                  <th className="text-left p-4 font-medium">Teléfono</th>
+                  <th className="text-left p-4 font-medium">Municipio</th>
+                  <th className="text-left p-4 font-medium">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="p-3">
+                    <td className="p-4">
                       <Link to={`/clientes/${c.id}`} className="text-blue-600 hover:underline font-medium">
                         {c.nombre}
                       </Link>
                     </td>
-                    <td className="p-3 text-gray-500">{c.nif_cif || "-"}</td>
-                    <td className="p-3">{c.telefono_principal || "-"}</td>
-                    <td className="p-3">{c.direccion_municipio || "-"}</td>
-                    <td className="p-3">
+                    <td className="p-4 text-gray-500">{c.nif_cif || "—"}</td>
+                    <td className="p-4">{c.telefono_principal || "—"}</td>
+                    <td className="p-4">{c.direccion_municipio || "—"}</td>
+                    <td className="p-4">
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         c.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                       }`}>
@@ -111,6 +112,7 @@ export default function ClienteList() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Mobile cards */}
