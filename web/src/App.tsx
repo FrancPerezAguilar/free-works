@@ -6,6 +6,8 @@ import ClienteList from "@/pages/clientes/ClienteList";
 import ClienteDetail from "@/pages/clientes/ClienteDetail";
 import TrabajoList from "@/pages/trabajos/TrabajoList";
 import TrabajoDetail from "@/pages/trabajos/TrabajoDetail";
+import PresupuestoList from "@/pages/presupuestos/PresupuestoList";
+import PresupuestoDetail from "@/pages/presupuestos/PresupuestoDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,8 +37,8 @@ export default function App() {
             <Route path="/clientes/:id" element={<ClienteDetail />} />
             <Route path="/trabajos" element={<TrabajoList />} />
             <Route path="/trabajos/:id" element={<TrabajoDetail />} />
-            <Route path="/presupuestos" element={<PlaceholderPage title="Presupuestos" />} />
-            <Route path="/presupuestos/:id" element={<PlaceholderPage title="Presupuesto" />} />
+            <Route path="/presupuestos" element={<PresupuestoList />} />
+            <Route path="/presupuestos/:id" element={<PresupuestoDetail />} />
             <Route path="/facturas" element={<PlaceholderPage title="Facturas" />} />
             <Route path="/facturas/:id" element={<PlaceholderPage title="Factura" />} />
             <Route path="/oportunidades" element={<PlaceholderPage title="Oportunidades" />} />
