@@ -1122,8 +1122,31 @@ def health():
 # ══════════════════════════════════════════════════════
 
 WEB_DIST = os.path.join(os.path.dirname(__file__), "..", "web", "dist")
-if os.path.isdir(WEB_DIST):
-    app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
+INDEX_HTML = os.path.join(WEB_DIST, "index.html")
+
+if os.path.isdir(WEB_DIST) and os.path.isfile(INDEX_HTML):
+    # Serve static assets from /assets/
+    assets_dir = os.path.join(WEB_DIST, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="web_assets")
+
+    # Root path + SPA catch-all
+    @app.get("/", include_in_schema=False)
+    async def spa_root():
+        return FileResponse(INDEX_HTML)
+
+    @app.api_route("/{path:path}", methods=["GET"], include_in_schema=False)
+    async def spa_catch_all(path: str):
+        # Don't interfere with API or docs
+        if path.startswith("api/") or path.startswith("docs") or path == "health" or path == "openapi.json":
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        # Map root static files
+        full_path = os.path.join(WEB_DIST, path)
+        if os.path.isfile(full_path) and os.path.commonpath([full_path, WEB_DIST]) == WEB_DIST:
+            return FileResponse(full_path)
+        # Everything else → SPA
+        return FileResponse(INDEX_HTML)
 
 
 if __name__ == "__main__":
