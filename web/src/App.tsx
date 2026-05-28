@@ -4,6 +4,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import ClienteList from "@/pages/clientes/ClienteList";
 import ClienteDetail from "@/pages/clientes/ClienteDetail";
+import TrabajoList from "@/pages/trabajos/TrabajoList";
+import TrabajoDetail from "@/pages/trabajos/TrabajoDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,8 +33,8 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/clientes" element={<ClienteList />} />
             <Route path="/clientes/:id" element={<ClienteDetail />} />
-            <Route path="/trabajos" element={<PlaceholderPage title="Trabajos" />} />
-            <Route path="/trabajos/:id" element={<PlaceholderPage title="Trabajo" />} />
+            <Route path="/trabajos" element={<TrabajoList />} />
+            <Route path="/trabajos/:id" element={<TrabajoDetail />} />
             <Route path="/presupuestos" element={<PlaceholderPage title="Presupuestos" />} />
             <Route path="/presupuestos/:id" element={<PlaceholderPage title="Presupuesto" />} />
             <Route path="/facturas" element={<PlaceholderPage title="Facturas" />} />
