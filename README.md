@@ -218,6 +218,8 @@ El servidor MCP (`db/mcp_server.py`) expone tools para cada operación CRUD. Se 
 - Histórico de comentarios
 - Actualización de estados (trabajo, pago, presupuesto)
 
+➡️ **Documentación detallada:** [`docs/mcp-tools.md`](docs/mcp-tools.md) — lista completa de las 38 herramientas con entradas, salidas y flujo de trabajo.
+
 ## Base de datos
 
 - **Motor:** PostgreSQL 16 local
