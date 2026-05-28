@@ -8,6 +8,12 @@ import TrabajoList from "@/pages/trabajos/TrabajoList";
 import TrabajoDetail from "@/pages/trabajos/TrabajoDetail";
 import PresupuestoList from "@/pages/presupuestos/PresupuestoList";
 import PresupuestoDetail from "@/pages/presupuestos/PresupuestoDetail";
+import OportunidadList from "@/pages/oportunidades/OportunidadList";
+import OportunidadDetail from "@/pages/oportunidades/OportunidadDetail";
+import MaterialList from "@/pages/materiales/MaterialList";
+import CalendarioPage from "@/pages/calendario/CalendarioPage";
+import FacturaList from "@/pages/facturas/FacturaList";
+import FacturaDetail from "@/pages/facturas/FacturaDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,14 +23,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-64 text-gray-400">
-      <p className="text-lg">{title} — próximamente</p>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -39,12 +37,12 @@ export default function App() {
             <Route path="/trabajos/:id" element={<TrabajoDetail />} />
             <Route path="/presupuestos" element={<PresupuestoList />} />
             <Route path="/presupuestos/:id" element={<PresupuestoDetail />} />
-            <Route path="/facturas" element={<PlaceholderPage title="Facturas" />} />
-            <Route path="/facturas/:id" element={<PlaceholderPage title="Factura" />} />
-            <Route path="/oportunidades" element={<PlaceholderPage title="Oportunidades" />} />
-            <Route path="/oportunidades/:id" element={<PlaceholderPage title="Oportunidad" />} />
-            <Route path="/materiales" element={<PlaceholderPage title="Materiales" />} />
-            <Route path="/calendario" element={<PlaceholderPage title="Calendario" />} />
+            <Route path="/facturas" element={<FacturaList />} />
+            <Route path="/facturas/:id" element={<FacturaDetail />} />
+            <Route path="/oportunidades" element={<OportunidadList />} />
+            <Route path="/oportunidades/:id" element={<OportunidadDetail />} />
+            <Route path="/materiales" element={<MaterialList />} />
+            <Route path="/calendario" element={<CalendarioPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
