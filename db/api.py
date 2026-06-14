@@ -1189,7 +1189,7 @@ def crear_tecnico(data: TecnicoCreate):
         cur.execute("""
             INSERT INTO tecnicos (
                 codigo_tecnico, nombre, apellidos, especialidad,
-                telefono, email, nif_cif, notas
+                telefono, email, nif, notas
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
         """, (
@@ -1208,7 +1208,7 @@ def actualizar_tecnico(tecnico_id: int, data: dict):
     if not data:
         raise HTTPException(400, "Sin datos para actualizar")
     allowed = {"nombre", "apellidos", "especialidad", "telefono",
-               "email", "nif_cif", "notas", "activo"}
+               "email", "nif", "notas", "activo", "nivel", "coste_hora"}
     sets = []
     values = []
     for k, v in data.items():
@@ -1253,11 +1253,11 @@ def listar_tecnicos_trabajo(trabajo_id: int):
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
-            SELECT tt.id, tt.trabajo_id, tt.tecnico_id, tt.horas, tt.rol,
-                   t.nombre, t.apellidos, t.especialidad
+            SELECT tt.id, tt.trabajo_id, tt.tecnico_id, tt.horas_estimadas AS horas,
+                   tt.rol, t.nombre, t.apellidos, t.especialidad
             FROM trabajo_tecnicos tt
             JOIN tecnicos t ON t.id = tt.tecnico_id
-            WHERE tt.trabajo_id = %s
+            WHERE tt.trabajo_id = %s AND tt.activo = TRUE
             ORDER BY t.nombre
         """, (trabajo_id,))
         return [serialize_dict(r) for r in cur.fetchall()]
@@ -1276,14 +1276,25 @@ def asignar_tecnico(trabajo_id: int, data: TecnicoAsignar):
         cur.execute("SELECT 1 FROM tecnicos WHERE id = %s AND activo = TRUE", (data.tecnico_id,))
         if not cur.fetchone():
             raise HTTPException(404, "Técnico no encontrado")
+        # La unique key es (trabajo_id, tecnico_id, activo). Si ya existe asignación
+        # activa, la reactivamos con nuevos datos; si no, la creamos nueva.
         cur.execute("""
-            INSERT INTO trabajo_tecnicos (trabajo_id, tecnico_id, horas, rol)
-            VALUES (%s,%s,%s,%s)
-            ON CONFLICT (trabajo_id, tecnico_id)
-            DO UPDATE SET horas = EXCLUDED.horas, rol = EXCLUDED.rol
+            UPDATE trabajo_tecnicos
+            SET horas_estimadas = %s, rol = %s, activo = TRUE,
+                fecha_asignacion = CURRENT_DATE, fecha_desasignacion = NULL
+            WHERE trabajo_id = %s AND tecnico_id = %s AND activo = TRUE
             RETURNING id
-        """, (trabajo_id, data.tecnico_id, data.horas, data.rol))
-        new_id = cur.fetchone()[0]
+        """, (data.horas, data.rol, trabajo_id, data.tecnico_id))
+        row = cur.fetchone()
+        if row:
+            new_id = row[0]
+        else:
+            cur.execute("""
+                INSERT INTO trabajo_tecnicos (trabajo_id, tecnico_id, horas_estimadas, rol, activo)
+                VALUES (%s, %s, %s, %s, TRUE)
+                RETURNING id
+            """, (trabajo_id, data.tecnico_id, data.horas, data.rol))
+            new_id = cur.fetchone()[0]
         conn.commit()
         return {"id": new_id, "mensaje": "Técnico asignado"}
     finally:
@@ -1295,10 +1306,11 @@ def desasignar_tecnico(trabajo_id: int, tecnico_id: int):
     conn = get_db()
     try:
         cur = conn.cursor()
-        cur.execute(
-            "DELETE FROM trabajo_tecnicos WHERE trabajo_id = %s AND tecnico_id = %s",
-            (trabajo_id, tecnico_id),
-        )
+        cur.execute("""
+            UPDATE trabajo_tecnicos
+            SET activo = FALSE, fecha_desasignacion = CURRENT_DATE
+            WHERE trabajo_id = %s AND tecnico_id = %s AND activo = TRUE
+        """, (trabajo_id, tecnico_id))
         conn.commit()
         if cur.rowcount == 0:
             raise HTTPException(404, "Asignación no encontrada")
@@ -1308,7 +1320,7 @@ def desasignar_tecnico(trabajo_id: int, tecnico_id: int):
 
 
 # ══════════════════════════════════════════════════════
-# ADJUNTOS
+# ADJUNTOS (polimórficos: entity_type + entity_id)
 # ══════════════════════════════════════════════════════
 
 @app.get("/api/trabajos/{trabajo_id}/adjuntos")
@@ -1317,16 +1329,18 @@ def listar_adjuntos(trabajo_id: int):
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
-            SELECT id, uuid, trabajo_id, tipo, nombre_archivo, ruta_archivo,
-                   mime_type, tamano_bytes, descripcion, subido_por, fecha_subida
+            SELECT id, uuid, entity_type, entity_id,
+                   nombre_original, ruta_archivo, tipo_mime,
+                   tamano_bytes, descripcion, subido_por, fecha_subida
             FROM adjuntos
-            WHERE trabajo_id = %s
+            WHERE entity_type = 'trabajo' AND entity_id = %s AND activo = TRUE
             ORDER BY fecha_subida DESC
         """, (trabajo_id,))
         rows = cur.fetchall()
         for r in rows:
-            r["nombre"] = r.pop("nombre_archivo")
-            r["ruta"] = r.pop("ruta_archivo")
+            r["trabajo_id"] = r["entity_id"]
+            r["nombre"] = r.pop("nombre_original")
+            r["mime_type"] = r.pop("tipo_mime")
             r["fecha"] = r.pop("fecha_subida")
             r["url"] = f"/api/adjuntos/{r['id']}/download"
         return [serialize_dict(r) for r in rows]
@@ -1351,8 +1365,6 @@ async def subir_adjunto(
     if size == 0:
         raise HTTPException(400, "Archivo vacío")
 
-    tipo = _detectar_tipo_adjunto(archivo.content_type or "")
-
     safe_name = Path(archivo.filename or "adjunto").name
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     stored_name = f"{trabajo_id}_{timestamp}_{safe_name}"
@@ -1370,16 +1382,17 @@ async def subir_adjunto(
             raise HTTPException(404, "Trabajo no encontrado")
         cur.execute("""
             INSERT INTO adjuntos (
-                trabajo_id, tipo, nombre_archivo, ruta_archivo,
-                mime_type, tamano_bytes, descripcion, subido_por
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                entity_type, entity_id, nombre_original, ruta_archivo,
+                tipo_mime, tamano_bytes, descripcion, subido_por
+            ) VALUES ('trabajo', %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
-            trabajo_id, tipo, safe_name, str(dest),
+            trabajo_id, safe_name, str(dest),
             archivo.content_type, size, descripcion, subido_por,
         ))
         new_id = cur.fetchone()[0]
         conn.commit()
+        tipo = _detectar_tipo_adjunto(archivo.content_type or "")
         return {
             "id": new_id,
             "tipo": tipo,
@@ -1397,7 +1410,7 @@ def descargar_adjunto(adjunto_id: int):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM adjuntos WHERE id = %s", (adjunto_id,))
+        cur.execute("SELECT * FROM adjuntos WHERE id = %s AND activo = TRUE", (adjunto_id,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, "Adjunto no encontrado")
@@ -1406,8 +1419,8 @@ def descargar_adjunto(adjunto_id: int):
             raise HTTPException(404, "Archivo no encontrado en disco")
         return FileResponse(
             path=str(path),
-            media_type=row["mime_type"] or "application/octet-stream",
-            filename=row["nombre_archivo"],
+            media_type=row["tipo_mime"] or "application/octet-stream",
+            filename=row["nombre_original"],
         )
     finally:
         conn.close()
@@ -1422,7 +1435,7 @@ def eliminar_adjunto(adjunto_id: int):
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, "Adjunto no encontrado")
-        cur.execute("DELETE FROM adjuntos WHERE id = %s", (adjunto_id,))
+        cur.execute("UPDATE adjuntos SET activo = FALSE WHERE id = %s", (adjunto_id,))
         conn.commit()
         if row["ruta_archivo"]:
             Path(row["ruta_archivo"]).unlink(missing_ok=True)
