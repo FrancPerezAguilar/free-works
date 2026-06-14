@@ -1,7 +1,8 @@
 """
-models.py — Modelos Pydantic para validación de entidades.
+models.py — Modelos Pydantic para Free Works.
 
-Define los esquemas de datos para Cliente y Trabajo (módulo básico MVP).
+Define los esquemas de datos para todas las entidades del sistema.
+Versión adaptada para la arquitectura Free Works + Holded.
 """
 
 from pydantic import BaseModel, Field, field_validator
@@ -13,23 +14,36 @@ import re
 # ── Helpers ────────────────────────────────────────────────
 
 def validar_telefono(v: str) -> str:
-    """Validación básica de teléfono español."""
     limpio = re.sub(r"[\s\(\)\-]", "", v)
     if not re.match(r"^(\+34)?[6789]\d{8}$", limpio):
-        raise ValueError("Formato de teléfono inválido. Debe ser un número español (9 dígitos, opcional +34)")
+        raise ValueError("Teléfono inválido. Debe ser un número español (9 dígitos, opcional +34)")
     return v
 
 
-# ── Cliente ────────────────────────────────────────────────
+# ── Técnico ────────────────────────────────────────────────
+
+class TecnicoCreate(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=200)
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    especialidad: Optional[str] = None
+
+
+class Tecnico(TecnicoCreate):
+    id: str
+    activo: bool = True
+    fecha_alta: str
+
+
+# ── Cliente (sincronizado con Holded) ─────────────────────
 
 class ClienteCreate(BaseModel):
-    """Datos para crear un nuevo cliente."""
-    nombre: str = Field(..., min_length=1, max_length=200, description="Nombre completo")
-    telefono: str = Field(..., min_length=9, max_length=20, description="Teléfono principal")
-    email: Optional[str] = Field(None, max_length=254, description="Email")
-    direccion: Optional[str] = Field(None, description="Dirección completa")
-    nif: Optional[str] = Field(None, max_length=15, description="NIF/CIF")
-    notas: Optional[str] = Field(None, description="Notas internas")
+    nombre: str = Field(..., min_length=1, max_length=200)
+    telefono: str = Field(..., min_length=9, max_length=20)
+    email: Optional[str] = Field(None, max_length=254)
+    direccion: Optional[str] = None
+    nif: Optional[str] = Field(None, max_length=15)
+    holded_id: Optional[str] = Field(None, description="ID en Holded (para sincronización)")
 
     @field_validator("telefono")
     @classmethod
@@ -38,7 +52,6 @@ class ClienteCreate(BaseModel):
 
 
 class Cliente(ClienteCreate):
-    """Cliente completo (con campos del sistema)."""
     id: str
     uuid: str
     fecha_creacion: str
@@ -46,49 +59,68 @@ class Cliente(ClienteCreate):
     fecha_actualizacion: Optional[str] = None
 
 
-# ── Trabajo ────────────────────────────────────────────────
+# ── Trabajo (core) ────────────────────────────────────────
+
+class TecnicoAsignado(BaseModel):
+    """Técnico asignado a un trabajo con sus horas."""
+    tecnico_id: str
+    nombre: str
+    horas: float = Field(default=0, ge=0)
+
 
 class ChecklistItem(BaseModel):
-    """Una tarea dentro del checklist del trabajo."""
     id: str = ""
     descripcion: str
     completada: bool = False
+    completada_por: Optional[str] = None
     fecha_completada: Optional[str] = None
 
 
 class RegistroHoras(BaseModel):
-    """Registro de horas trabajadas en un día."""
+    """Registro de horas de un técnico en un trabajo."""
+    tecnico_id: str = Field(..., description="ID del técnico")
+    nombre: str = Field(..., description="Nombre del técnico")
     fecha: date
     horas: float = Field(..., gt=0, le=24)
     descripcion: Optional[str] = None
 
 
 class MaterialUsado(BaseModel):
-    """Material consumido en el trabajo."""
     nombre: str
     cantidad: float = Field(..., gt=0)
     unidad: str = "ud"
     precio: Optional[float] = None
+    holded_id: Optional[str] = Field(None, description="ID del producto en Holded")
 
 
-class FotoTrabajo(BaseModel):
-    """Foto o evidencia del trabajo."""
-    url: str
+class Adjunto(BaseModel):
+    tipo: str = Field(..., pattern=r"^(foto|pdf|audio|documento)$")
+    nombre: str
+    ruta: str
     descripcion: Optional[str] = None
     fecha: Optional[str] = None
+    subido_por: Optional[str] = None
+
+
+class Comentario(BaseModel):
+    autor: str
+    texto: str
+    fecha: str
+    adjuntos: list[Adjunto] = []
 
 
 class TrabajoCreate(BaseModel):
-    """Datos para crear un nuevo trabajo."""
-    cliente_id: str = Field(..., description="ID del cliente (ej: cliente-001)")
-    titulo: str = Field(..., min_length=1, max_length=200, description="Título del trabajo")
-    descripcion: Optional[str] = Field(None, description="Descripción detallada")
-    direccion_obra: Optional[str] = Field(None, description="Dirección donde se realiza")
-    estado: str = Field("pendiente", description="Estado del trabajo")
+    cliente_id: str = Field(..., description="ID del cliente")
+    cliente_nombre: str = Field(..., description="Nombre del cliente (para display rápido)")
+    holded_cliente_id: Optional[str] = Field(None, description="ID del cliente en Holded")
+    titulo: str = Field(..., min_length=1, max_length=200)
+    descripcion: Optional[str] = None
+    direccion_obra: Optional[str] = None
+    estado: str = Field("pendiente", pattern=r"^(pendiente|en_curso|completado|cancelado)$")
+    prioridad: str = Field("media", pattern=r"^(baja|media|alta|urgente)$")
 
 
 class Trabajo(TrabajoCreate):
-    """Trabajo completo (con campos del sistema)."""
     id: str
     uuid: str
     codigo: str
@@ -97,7 +129,9 @@ class Trabajo(TrabajoCreate):
     fecha_actualizacion: Optional[str] = None
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
-    checklist: list = []
-    horas: list = []
-    materiales: list = []
-    fotos: list = []
+    tecnicos_asignados: list[TecnicoAsignado] = []
+    checklist: list[ChecklistItem] = []
+    horas: list[RegistroHoras] = []
+    materiales: list[MaterialUsado] = []
+    adjuntos: list[Adjunto] = []
+    comentarios: list[Comentario] = []

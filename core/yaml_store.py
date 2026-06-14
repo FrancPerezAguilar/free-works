@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 # ── Configuración ──────────────────────────────────────────
-DATA_DIR = Path(os.environ.get("AI_FIRST_DATA", os.path.expanduser("~/ai-first-autonomos/data")))
+DATA_DIR = Path(os.environ.get("FREE_WORKS_DATA", os.path.expanduser("~/free-works/data")))
 
 # Zona horaria para timestamps
 def now() -> str:
