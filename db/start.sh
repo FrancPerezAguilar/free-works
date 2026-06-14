@@ -5,12 +5,20 @@
 export LD_LIBRARY_PATH=/home/ai/pg-dist/usr/lib/x86_64-linux-gnu:/home/ai/pg-dist/usr/lib/postgresql/16/lib
 export PATH=/home/ai/pg-dist/usr/lib/postgresql/16/bin:$PATH
 
+REPO_DIR=/home/ai/free-works
 PG_DATA=/home/ai/pg-data
 PG_LOG=$PG_DATA/logfile
-API_DIR=/home/ai/ai-first-autonomos/db
+API_DIR=$REPO_DIR/db
 API_LOG=$API_DIR/logs/api.log
 
-echo "[$(date)] Starting AI-First Autónomos stack..."
+# Load env vars if .env exists
+if [ -f "$REPO_DIR/.env" ]; then
+    set -a
+    . "$REPO_DIR/.env"
+    set +a
+fi
+
+echo "[$(date)] Starting Free Works stack..."
 
 # 1. Start PostgreSQL if not running
 if ! pg_isready -h /home/ai/pg-data/sockets -q 2>/dev/null; then
@@ -31,7 +39,7 @@ fi
 if ! curl -sf http://localhost:8000/health > /dev/null 2>&1; then
     echo "  Starting API server..."
     mkdir -p $API_DIR/logs
-    cd /home/ai/ai-first-autonomos
+    cd $REPO_DIR
     nohup python db/api.py > $API_LOG 2>&1 &
     API_PID=$!
     sleep 2

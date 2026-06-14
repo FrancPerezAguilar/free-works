@@ -277,14 +277,11 @@ export default function TrabajoDetail() {
               )}
 
               {activeTab === "tecnicos" && (
-                <TecnicosSection
-                  trabajoId={trabajoId}
-                  tecnicos={trabajo.tecnicos_asignados}
-                />
+                <TecnicosSection trabajoId={trabajoId} />
               )}
 
               {activeTab === "adjuntos" && (
-                <AdjuntosSection adjuntos={trabajo.adjuntos} />
+                <AdjuntosSection trabajoId={trabajoId} />
               )}
             </CardContent>
           </Card>

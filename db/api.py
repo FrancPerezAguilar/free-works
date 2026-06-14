@@ -1,20 +1,39 @@
 """
-AI-First Autónomos — FastAPI REST API
+Free Works — FastAPI REST API
 Provides CRUD operations over PostgreSQL for all entities.
 """
 import os, json
 from datetime import date, datetime
+from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
 import psycopg2.extras
 
-os.environ["LD_LIBRARY_PATH"] = "/home/ai/pg-dist/usr/lib/x86_64-linux-gnu:/home/ai/pg-dist/usr/lib/postgresql/16/lib"
-DB_DSN = "host=/home/ai/pg-data/sockets dbname=ai_first_autonomos user=ai_first password=ai_first_2026"
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+LD_LIBRARY_PATH = os.getenv(
+    "LD_LIBRARY_PATH",
+    "/home/ai/pg-dist/usr/lib/x86_64-linux-gnu:/home/ai/pg-dist/usr/lib/postgresql/16/lib",
+)
+if LD_LIBRARY_PATH:
+    os.environ["LD_LIBRARY_PATH"] = LD_LIBRARY_PATH
+
+DB_DSN = (
+    f"host={os.getenv('DB_HOST', '/home/ai/pg-data/sockets')} "
+    f"dbname={os.getenv('DB_NAME', 'ai_first_autonomos')} "
+    f"user={os.getenv('DB_USER', 'ai_first')} "
+    f"password={os.getenv('DB_PASSWORD', 'ai_first_2026')}"
+)
+
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(BASE_DIR / "data" / "uploads")))
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="AI-First Autónomos API",
@@ -330,6 +349,22 @@ class FacturaCreate(BaseModel):
     factura_direccion_provincia: Optional[str] = None
 
 
+class TecnicoCreate(BaseModel):
+    nombre: str
+    apellidos: Optional[str] = None
+    especialidad: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    nif_cif: Optional[str] = None
+    notas: Optional[str] = None
+
+
+class TecnicoAsignar(BaseModel):
+    tecnico_id: int
+    horas: float = 0
+    rol: Optional[str] = None
+
+
 # ══════════════════════════════════════════════════════
 # CLIENTES
 # ══════════════════════════════════════════════════════
@@ -339,7 +374,7 @@ def listar_clientes(activo: bool = True):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM clientes WHERE active = %s ORDER BY nombre", (activo,))
+        cur.execute("SELECT * FROM clientes WHERE activo = %s ORDER BY nombre", (activo,))
         rows = cur.fetchall()
         return [serialize_dict(r) for r in rows]
     finally:
@@ -1092,6 +1127,306 @@ def añadir_linea_factura(factura_id: int, data: dict):
         ))
         conn.commit()
         return {"mensaje": "Línea añadida a la factura"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# TÉCNICOS
+# ══════════════════════════════════════════════════════
+
+ALLOWED_TIPOS_ADJUNTO = {"foto", "pdf", "audio", "documento"}
+ALLOWED_MIME_PREFIXES = ("image/", "application/pdf", "audio/")
+MAX_ADJUNTO_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+def _detectar_tipo_adjunto(mime: str) -> str:
+    if not mime:
+        return "documento"
+    if mime.startswith("image/"):
+        return "foto"
+    if mime == "application/pdf":
+        return "pdf"
+    if mime.startswith("audio/"):
+        return "audio"
+    return "documento"
+
+
+@app.get("/api/tecnicos")
+def listar_tecnicos(activo: bool = True):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM tecnicos WHERE activo = %s ORDER BY nombre",
+            (activo,),
+        )
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+@app.get("/api/tecnicos/{tecnico_id}")
+def obtener_tecnico(tecnico_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM tecnicos WHERE id = %s", (tecnico_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Técnico no encontrado")
+        return serialize_dict(row)
+    finally:
+        conn.close()
+
+
+@app.post("/api/tecnicos")
+def crear_tecnico(data: TecnicoCreate):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        codigo = f"TEC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        cur.execute("""
+            INSERT INTO tecnicos (
+                codigo_tecnico, nombre, apellidos, especialidad,
+                telefono, email, nif_cif, notas
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            codigo, data.nombre, data.apellidos, data.especialidad,
+            data.telefono, data.email, data.nif_cif, data.notas,
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "codigo_tecnico": codigo}
+    finally:
+        conn.close()
+
+
+@app.patch("/api/tecnicos/{tecnico_id}")
+def actualizar_tecnico(tecnico_id: int, data: dict):
+    if not data:
+        raise HTTPException(400, "Sin datos para actualizar")
+    allowed = {"nombre", "apellidos", "especialidad", "telefono",
+               "email", "nif_cif", "notas", "activo"}
+    sets = []
+    values = []
+    for k, v in data.items():
+        if k in allowed:
+            sets.append(f"{k} = %s")
+            values.append(v)
+    if not sets:
+        raise HTTPException(400, "Ningún campo permitido")
+    values.append(tecnico_id)
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE tecnicos SET {', '.join(sets)}, fecha_modificacion = NOW() WHERE id = %s",
+            values,
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Técnico no encontrado")
+        return {"mensaje": "Técnico actualizado"}
+    finally:
+        conn.close()
+
+
+@app.delete("/api/tecnicos/{tecnico_id}")
+def eliminar_tecnico(tecnico_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE tecnicos SET activo = FALSE, fecha_modificacion = NOW() WHERE id = %s", (tecnico_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Técnico no encontrado")
+        return {"mensaje": "Técnico eliminado"}
+    finally:
+        conn.close()
+
+
+@app.get("/api/trabajos/{trabajo_id}/tecnicos")
+def listar_tecnicos_trabajo(trabajo_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT tt.id, tt.trabajo_id, tt.tecnico_id, tt.horas, tt.rol,
+                   t.nombre, t.apellidos, t.especialidad
+            FROM trabajo_tecnicos tt
+            JOIN tecnicos t ON t.id = tt.tecnico_id
+            WHERE tt.trabajo_id = %s
+            ORDER BY t.nombre
+        """, (trabajo_id,))
+        return [serialize_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+@app.post("/api/trabajos/{trabajo_id}/tecnicos")
+def asignar_tecnico(trabajo_id: int, data: TecnicoAsignar):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM trabajos WHERE id = %s AND activo = TRUE", (trabajo_id,))
+        if not cur.fetchone():
+            raise HTTPException(404, "Trabajo no encontrado")
+        cur.execute("SELECT 1 FROM tecnicos WHERE id = %s AND activo = TRUE", (data.tecnico_id,))
+        if not cur.fetchone():
+            raise HTTPException(404, "Técnico no encontrado")
+        cur.execute("""
+            INSERT INTO trabajo_tecnicos (trabajo_id, tecnico_id, horas, rol)
+            VALUES (%s,%s,%s,%s)
+            ON CONFLICT (trabajo_id, tecnico_id)
+            DO UPDATE SET horas = EXCLUDED.horas, rol = EXCLUDED.rol
+            RETURNING id
+        """, (trabajo_id, data.tecnico_id, data.horas, data.rol))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {"id": new_id, "mensaje": "Técnico asignado"}
+    finally:
+        conn.close()
+
+
+@app.delete("/api/trabajos/{trabajo_id}/tecnicos/{tecnico_id}")
+def desasignar_tecnico(trabajo_id: int, tecnico_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM trabajo_tecnicos WHERE trabajo_id = %s AND tecnico_id = %s",
+            (trabajo_id, tecnico_id),
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Asignación no encontrada")
+        return {"mensaje": "Técnico desasignado"}
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════
+# ADJUNTOS
+# ══════════════════════════════════════════════════════
+
+@app.get("/api/trabajos/{trabajo_id}/adjuntos")
+def listar_adjuntos(trabajo_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT id, uuid, trabajo_id, tipo, nombre_archivo, ruta_archivo,
+                   mime_type, tamano_bytes, descripcion, subido_por, fecha_subida
+            FROM adjuntos
+            WHERE trabajo_id = %s
+            ORDER BY fecha_subida DESC
+        """, (trabajo_id,))
+        rows = cur.fetchall()
+        for r in rows:
+            r["nombre"] = r.pop("nombre_archivo")
+            r["ruta"] = r.pop("ruta_archivo")
+            r["fecha"] = r.pop("fecha_subida")
+            r["url"] = f"/api/adjuntos/{r['id']}/download"
+        return [serialize_dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.post("/api/trabajos/{trabajo_id}/adjuntos")
+async def subir_adjunto(
+    trabajo_id: int,
+    archivo: UploadFile = File(...),
+    descripcion: str = Form(None),
+    subido_por: str = Form("Franc"),
+):
+    if archivo.content_type and not any(archivo.content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES):
+        raise HTTPException(400, f"Tipo de archivo no permitido: {archivo.content_type}")
+
+    contents = await archivo.read()
+    size = len(contents)
+    if size > MAX_ADJUNTO_BYTES:
+        raise HTTPException(400, f"Archivo demasiado grande ({size} bytes, máx {MAX_ADJUNTO_BYTES})")
+    if size == 0:
+        raise HTTPException(400, "Archivo vacío")
+
+    tipo = _detectar_tipo_adjunto(archivo.content_type or "")
+
+    safe_name = Path(archivo.filename or "adjunto").name
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    stored_name = f"{trabajo_id}_{timestamp}_{safe_name}"
+    job_dir = UPLOADS_DIR / str(trabajo_id)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    dest = job_dir / stored_name
+    dest.write_bytes(contents)
+
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM trabajos WHERE id = %s AND activo = TRUE", (trabajo_id,))
+        if not cur.fetchone():
+            dest.unlink(missing_ok=True)
+            raise HTTPException(404, "Trabajo no encontrado")
+        cur.execute("""
+            INSERT INTO adjuntos (
+                trabajo_id, tipo, nombre_archivo, ruta_archivo,
+                mime_type, tamano_bytes, descripcion, subido_por
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            trabajo_id, tipo, safe_name, str(dest),
+            archivo.content_type, size, descripcion, subido_por,
+        ))
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        return {
+            "id": new_id,
+            "tipo": tipo,
+            "nombre": safe_name,
+            "tamano_bytes": size,
+            "url": f"/api/adjuntos/{new_id}/download",
+            "mensaje": "Adjunto subido",
+        }
+    finally:
+        conn.close()
+
+
+@app.get("/api/adjuntos/{adjunto_id}/download")
+def descargar_adjunto(adjunto_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM adjuntos WHERE id = %s", (adjunto_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Adjunto no encontrado")
+        path = Path(row["ruta_archivo"])
+        if not path.is_file():
+            raise HTTPException(404, "Archivo no encontrado en disco")
+        return FileResponse(
+            path=str(path),
+            media_type=row["mime_type"] or "application/octet-stream",
+            filename=row["nombre_archivo"],
+        )
+    finally:
+        conn.close()
+
+
+@app.delete("/api/adjuntos/{adjunto_id}")
+def eliminar_adjunto(adjunto_id: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT ruta_archivo FROM adjuntos WHERE id = %s", (adjunto_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Adjunto no encontrado")
+        cur.execute("DELETE FROM adjuntos WHERE id = %s", (adjunto_id,))
+        conn.commit()
+        if row["ruta_archivo"]:
+            Path(row["ruta_archivo"]).unlink(missing_ok=True)
+        return {"mensaje": "Adjunto eliminado"}
     finally:
         conn.close()
 

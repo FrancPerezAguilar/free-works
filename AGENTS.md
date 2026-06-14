@@ -47,7 +47,6 @@ Free Works es un **gestor de trabajos con IA** (NO un ERP completo). La filosof�
 | **Frontend** | React 19 + TypeScript 6.0 + Vite 8 | Tailwind CSS 4, Lucide icons |
 | **Backend API** | Python 3.11 + FastAPI | PostgreSQL 16 local (puerto 8000) |
 | **BD relacional** | PostgreSQL 16 | En `~/pg-dist/`, DB `ai_first_autonomos` |
-| **Datos locales** | YAML | En `~/free-works/data/` (fuente de verdad ligera) |
 | **IA principal** | DeepSeek V4 Flash (via OpenCode Go) | Agente Hermes que razona y coordina |
 | **IA código** | MiniMax M3 (subagente delegado) | Generación de código, debugging |
 | **Voz** | Supertonic TTS (español) | Notas de voz Ogg Opus |
@@ -60,12 +59,13 @@ Free Works es un **gestor de trabajos con IA** (NO un ERP completo). La filosof�
 | react-hook-form | 7.76 | Formularios |
 | @tanstack/react-query | 5.100 | Data fetching + caché |
 | react-router-dom | 7.15 | Routing |
-| ky | 2.0 | HTTP client |
+| fetch (nativo) | — | HTTP client en `web/src/api/client.ts` |
 | zod | 4.4 | Validación esquemas |
 | tailwind-merge + clsx | — | Utilidades CSS |
-| Pydantic | 2+ | Modelos Python |
-| PyYAML | 6+ | YAML store |
-| psycopg2 | — | Conexión PostgreSQL |
+| Pydantic | 2.10 | Modelos Python (request/response) |
+| psycopg2-binary | 2.9 | Conexión PostgreSQL |
+| python-dotenv | 1.0+ | Carga de variables de entorno |
+| python-multipart | 0.0.9 | Subida de archivos (adjuntos) |
 
 ---
 
@@ -73,10 +73,6 @@ Free Works es un **gestor de trabajos con IA** (NO un ERP completo). La filosof�
 
 ```
 free-works/
-├── core/                  # Lógica de negocio (Python)
-│   ├── models.py          #   Modelos Pydantic (trabajo, cliente, técnico...)
-│   └── yaml_store.py      #   CRUD sobre archivos YAML (fuente de verdad)
-│
 ├── web/                   # Frontend React
 │   ├── src/
 │   │   ├── api/           #   Llamadas a la API (clientes, trabajos, etc.)
@@ -103,11 +99,12 @@ free-works/
 │   ├── api.py             #   FastAPI server (todos los endpoints CRUD)
 │   ├── mcp_server.py      #   MCP server (tools para Hermes)
 │   ├── migrations/
-│   │   ├── 001_schema.sql #   Schema completo PostgreSQL
-│   │   └── 002_calendario.sql
-│   ├── migrate_data.py    #   Migrador YAML → PostgreSQL
+│   │   ├── 001_schema.sql          #   Schema completo PostgreSQL
+│   │   ├── 002_calendario.sql      #   Tabla de eventos
+│   │   ├── 003_normalize_activo.sql #   clientes.active → clientes.activo
+│   │   └── 004_tecnicos_adjuntos.sql #   Técnicos + adjuntos
 │   ├── start.sh
-│   └── requirements-api.txt
+│   └── logs/              #   Logs del API server
 │
 ├── sync/holded/           # Capa de sincronización con Holded
 │   ├── __init__.py
@@ -117,27 +114,24 @@ free-works/
 │   ├── __init__.py
 │   └── README.md
 │
-├── tecnicos/              # Módulo de gestión de técnicos
+├── tecnicos/              # Módulo de gestión de técnicos (documentación)
 │   ├── __init__.py
 │   └── README.md
 │
 ├── adjuntos/              # Módulo de archivos multimedia
 │   └── __init__.py
 │
-├── data/                  # Datos YAML locales
-│   ├── trabajos/          #   Archivos .yaml individuales por trabajo
-│   ├── clientes/          #   Archivos .yaml individuales por cliente
-│   ├── materiales/        #   Catálogo de materiales
-│   ├── templates/         #   Plantillas YAML para cada entidad
-│   └── .seq_*             #   Contadores secuenciales para IDs
+├── data/
+│   └── uploads/           #   Archivos subidos (gitignored)
 │
 ├── archive/               # Código legacy del ERP anterior (no tocar)
-├── docs/                  # Documentación
+├── docs/                  # OpenAPI spec, Swagger UI, planes
 ├── ARQUITECTURA.md        # Documento de arquitectura
 ├── AGENTS.md              # ← ESTE DOCUMENTO
-├── CONTEXT.md             # Contexto para IA (versión anterior)
 ├── README.md
-└── requirements.txt       # Dependencias Python base
+├── .env.example           # Plantilla de variables de entorno
+├── .gitignore
+└── requirements.txt       # Dependencias Python unificadas
 ```
 
 ---
@@ -172,12 +166,12 @@ El trabajo es el centro de todo. Representa una obra/proyecto de instalación el
 - **Tiempos** (`trabajo_tiempos`): Registro de horas trabajadas por fecha
 - **Materiales** (`trabajo_materiales`): Materiales usados (cantidad, precio, FK a materiales)
 - **Comentarios** (`comentarios`): Comentarios polimórficos (entity_type='trabajo')
+- **Técnicos asignados** (`trabajo_tecnicos`): N:M con técnicos del catálogo + horas dedicadas
+- **Adjuntos** (`adjuntos`): archivos subidos (foto, pdf, audio, documento) con ruta en disco y metadatos
 
-**Campos adicionales en YAML (modelo Pydantic `core/models.py`):**
+**Campos adicionales (en BD):**
 
-- `tecnicos_asignados`: Lista de técnicos con nombre y horas
-- `adjuntos`: Lista de adjuntos (foto, pdf, audio, documento) con ruta y descripción
-- `holded_cliente_id`: ID del cliente en Holded (para sincronización)
+- `holded_cliente_id`: ID del cliente en Holded (para sincronización futura)
 
 ### 2. CLIENTE
 
@@ -236,6 +230,13 @@ Todas las rutas bajo `/api/`. Proxy desde Vite en desarrollo.
 | `/api/oportunidades` | GET/POST | Oportunidades |
 | `/api/oportunidades/{id}` | GET/PATCH | Detalle / Actualizar |
 | `/api/materiales` | GET/POST | Catálogo de materiales |
+| `/api/tecnicos` | GET/POST | Catálogo de técnicos |
+| `/api/tecnicos/{id}` | GET/PATCH/DELETE | Detalle / actualizar / eliminar |
+| `/api/trabajos/{id}/tecnicos` | GET/POST | Técnicos asignados al trabajo |
+| `/api/trabajos/{id}/tecnicos/{tid}` | DELETE | Desasignar técnico |
+| `/api/trabajos/{id}/adjuntos` | GET/POST | Listar / subir adjuntos |
+| `/api/adjuntos/{id}/download` | GET | Descargar archivo |
+| `/api/adjuntos/{id}` | DELETE | Eliminar adjunto |
 | `/api/calendario/eventos` | GET/POST | Eventos |
 | `/api/calendario/eventos/{id}` | PATCH/DELETE | Actualizar / Eliminar evento |
 | `/api/docs` | GET | Swagger UI |
@@ -271,29 +272,16 @@ Todas las rutas bajo `/api/`. Proxy desde Vite en desarrollo.
 
 ---
 
-## 💾 Almacenamiento dual
+## 💾 Almacenamiento
 
-El sistema tiene **dos fuentes de datos**:
-
-### 1. YAML Store (`core/yaml_store.py`) — Fuente de verdad ligera
-
-- Archivos individuales en `data/{entidad}/{id}.yaml`
-- IDs: `cliente-001`, `trabajo-001`, `material-001` (secuenciales por entidad)
-- Plantillas en `data/templates/` garantizan estructura uniforme
-- Soft-delete por defecto (campo `activo: false`)
-- Uso: datos locales, portables, editables a mano
-
-### 2. PostgreSQL 16 — Base relacional para API
+El sistema usa **PostgreSQL 16** como única fuente de verdad:
 
 - Base de datos: `ai_first_autonomos`
-- Puerto: 8000 (FastAPI)
 - Socket: `~/pg-data/sockets`
-- Migraciones en `db/migrations/`
-- Uso: operaciones CRUD desde API y frontend
-
-### Relación entre stores
-
-Ambos coexisten. El YAML store es la fuente de verdad original para datos locales. PostgreSQL se usa para el API server. Hay un script `db/migrate_data.py` para migrar YAML → PostgreSQL.
+- API: `localhost:8000` (FastAPI)
+- Migraciones en `db/migrations/` (aplicar en orden numérico)
+- Credenciales y paths en `.env` (ver `.env.example`)
+- Archivos subidos (adjuntos) en `data/uploads/{trabajo_id}/` (gitignored)
 
 ---
 
@@ -347,7 +335,7 @@ TrabajoDetail
 
 ### API calls (frontend → backend)
 
-Todas pasan por `web/src/api/client.ts` que usa `ky` (HTTP client ligero).
+Todas pasan por `web/src/api/client.ts` que usa `fetch` nativo (con soporte para `FormData`).
 Las rutas de API están prefijadas con `/api/` y el proxy de Vite redirige a `localhost:8000`.
 
 ### Convenciones del frontend
@@ -360,7 +348,7 @@ Las rutas de API están prefijadas con `/api/` y el proxy de Vite redirige a `lo
 - **Estilos**: Tailwind CSS 4 + tailwind-merge para composición
 - **Data fetching**: React Query (TanStack Query) con staleTime 30s
 - **Formularios**: react-hook-form + zod
-- **Colores sidebar**: bg-gray-900 text-gray-300, hover:bg-gray-800
+- **Colores sidebar**: `bg-white border-r` con active state `bg-blue-50` (tema claro)
 
 ---
 
@@ -458,7 +446,7 @@ delegation:
 
 | Fase | Descripción | Estado | Detalle |
 |------|-------------|--------|---------|
-| **1** | Core: trabajos, checklist, tiempos, materiales, clientes | ✅ Completado | CRUD completo, frontend adaptado con técnicos y adjuntos |
+| **1** | Core: trabajos, checklist, tiempos, materiales, técnicos, adjuntos, clientes | ✅ Completado | CRUD completo, sub-entidades, frontend con técnicos y adjuntos |
 | **2** | Conector Holded MCP | ⏳ Bloqueado | Pendiente API key de Holded |
 | **3** | Presupuestos + facturación → Holded | ⏳ | Diseñado, no implementado |
 | **4** | Asistente IA por voz completo | ⏳ | JARVIS operativo, mejorar integración |
@@ -469,8 +457,7 @@ delegation:
 1. **API key de Holded** — Configurar MCP `@energio/holded-mcp` con la clave
 2. **Aplicar mitigaciones de seguridad** — Soft-delete, confirmaciones, módulos restringidos
 3. **Implementar `sync/holded/sync.py`** — Llamadas reales al MCP
-4. **Adaptar frontend para técnicos + adjuntos** — ✅ Hecho
-5. **Integrar backend real para técnicos y adjuntos** — Endpoints pendientes en `db/api.py`
+4. **Implementar página dedicada de Técnicos** (ahora se gestionan desde el detalle del trabajo)
 
 ---
 
@@ -479,17 +466,26 @@ delegation:
 ### Backend (API + PostgreSQL)
 
 ```bash
-# PostgreSQL 16 local (ya corriendo en :8000)
-cd ~/free-works/db
-pip install -r requirements-api.txt
-./start.sh
+# 1. Copia .env.example a .env y rellena credenciales
+cp .env.example .env
+
+# 2. Instala dependencias
+pip install -r requirements.txt
+
+# 3. Aplica migraciones (en orden numérico)
+psql -h $(grep DB_HOST .env | cut -d= -f2) -U $(grep DB_USER .env | cut -d= -f2) \
+  -d $(grep DB_NAME .env | cut -d= -f2) \
+  -f db/migrations/00{1,2,3,4}_*.sql
+
+# 4. Inicia el stack
+./db/start.sh
 # API en http://localhost:8000/docs
 ```
 
 ### Frontend
 
 ```bash
-cd ~/free-works/web
+cd web
 npm install
 npm run dev
 # UI en http://localhost:5173 (con proxy /api → :8000)
@@ -510,7 +506,7 @@ hermes mcp add holded --command "npx -y @energio/holded-mcp" \
 ### Para cualquier IA que trabaje en este proyecto
 
 1. **No inventar datos.** Si algo no existe o no se puede verificar, decirlo.
-2. **Preferir YAML para datos estructurados**, JSON para intercambio.
+2. **Preferir JSON para datos estructurados e intercambio** (no usamos YAML).
 3. **Soft-delete siempre** (activo=false). Nunca DELETE real a menos que se pida explícitamente.
 4. **Confirmación humana** para operaciones destructivas en Holded (delete, pay, send).
 5. **Time zone: CEST (UTC+2)** — Todos los horarios en hora local española.
@@ -519,11 +515,10 @@ hermes mcp add holded --command "npx -y @energio/holded-mcp" \
 8. **Proxy de Vite**: `/api` → `localhost:8000`. No cambiar en desarrollo.
 9. **No modificar `archive/`** — Es código legacy congelado.
 10. **Estados de trabajo**: solo `pendiente → en_curso → completado → cancelado`.
-11. **Los adjuntos son archivos locales** (fotos, PDFs, audios) con ruta en el servidor.
-12. **Los técnicos** se asignan a trabajos con nombre + horas acumuladas.
+11. **Los adjuntos son archivos locales** (fotos, PDFs, audios) con ruta en `data/uploads/`.
+12. **Los técnicos** se gestionan desde el catálogo (`/api/tecnicos`) y se asignan a trabajos vía `trabajo_tecnicos`.
 13. **Comentarios**: tabla polimórfica `comentarios` (entity_type + entity_id) para cualquier entidad.
-14. **Al crear una entidad desde plantilla** (`crear_desde_plantilla`), se hace merge profundo sobre la plantilla YAML para garantizar que todos los campos existan.
-15. **Git**: subir cambios con `git add -A && git commit -m "..." && git push origin main`.
+14. **Git**: subir cambios con `git add -A && git commit -m "..." && git push origin main`.
 
 ### Para el subagente MiniMax M3
 
@@ -539,17 +534,17 @@ hermes mcp add holded --command "npx -y @energio/holded-mcp" \
 | Recurso | Ruta |
 |---------|------|
 | Schema BD completo | `db/migrations/001_schema.sql` |
-| Modelos Pydantic | `core/models.py` |
-| YAML Store | `core/yaml_store.py` |
+| Modelos Pydantic (request/response) | `db/api.py` (sección "Pydantic Models") |
 | API endpoints | `db/api.py` |
 | MCP tools | `db/mcp_server.py` |
-| Sync Holded | `sync/holded/sync.py` |
+| Sync Holded (placeholder) | `sync/holded/sync.py` |
 | Frontend types | `web/src/types/` |
 | Frontend constants | `web/src/lib/constants.ts` |
 | Frontend layout | `web/src/components/layout/` |
+| Frontend API client | `web/src/api/` |
 | Arquitectura | `ARQUITECTURA.md` |
-| Datos YAML | `data/` |
-| Migrador YAML → PG | `db/migrate_data.py` |
+| Uploads (adjuntos) | `data/uploads/` |
+| Plantilla env | `.env.example` |
 | Auditoría MCP | `/home/ai/HOLDED_MCP_SECURITY_AUDIT.md` |
 
 ---
