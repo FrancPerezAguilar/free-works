@@ -12,6 +12,8 @@ import { ChecklistSection } from "./ChecklistSection";
 import { TiemposSection } from "./TiemposSection";
 import { MaterialesSection } from "./MaterialesSection";
 import { ComentariosSection } from "./ComentariosSection";
+import { TecnicosSection } from "./TecnicosSection";
+import { AdjuntosSection } from "./AdjuntosSection";
 import {
   ArrowLeft,
   Building2,
@@ -22,15 +24,19 @@ import {
   FileText,
   CheckSquare,
   MessageSquare,
+  Users,
+  Paperclip,
 } from "lucide-react";
 
-type Tab = "info" | "checklist" | "tiempos" | "materiales" | "comentarios";
+type Tab = "info" | "checklist" | "tiempos" | "materiales" | "comentarios" | "tecnicos" | "adjuntos";
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "info", label: "Información", icon: FileText },
   { id: "checklist", label: "Checklist", icon: CheckSquare },
+  { id: "tecnicos", label: "Técnicos", icon: Users },
   { id: "tiempos", label: "Tiempos", icon: Clock },
   { id: "materiales", label: "Materiales", icon: DollarSign },
+  { id: "adjuntos", label: "Adjuntos", icon: Paperclip },
   { id: "comentarios", label: "Comentarios", icon: MessageSquare },
 ];
 
@@ -268,6 +274,17 @@ export default function TrabajoDetail() {
                   trabajoId={trabajoId}
                   items={trabajo.comentarios}
                 />
+              )}
+
+              {activeTab === "tecnicos" && (
+                <TecnicosSection
+                  trabajoId={trabajoId}
+                  tecnicos={trabajo.tecnicos_asignados}
+                />
+              )}
+
+              {activeTab === "adjuntos" && (
+                <AdjuntosSection adjuntos={trabajo.adjuntos} />
               )}
             </CardContent>
           </Card>

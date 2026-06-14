@@ -6,6 +6,7 @@ export interface Trabajo {
   descripcion: string | null;
   cliente_id: number | null;
   cliente_nombre: string | null;
+  holded_cliente_id?: string | null;
   oportunidad_id?: number | null;
   presupuesto_id?: number | null;
   factura_id?: number | null;
@@ -32,6 +33,8 @@ export interface Trabajo {
   tiempos?: RegistroTiempo[];
   materiales?: MaterialUsado[];
   comentarios?: Comentario[];
+  tecnicos_asignados?: TecnicoAsignado[];
+  adjuntos?: Adjunto[];
 }
 
 export interface ChecklistItem {
@@ -55,6 +58,7 @@ export interface RegistroTiempo {
   hora_fin?: string | null;
   horas: number;
   descripcion: string | null;
+  tecnico_nombre?: string | null;
 }
 
 export interface MaterialUsado {
@@ -67,6 +71,7 @@ export interface MaterialUsado {
   precio_unitario?: number;
   subtotal?: number;
   notas?: string | null;
+  holded_id?: string | null;
 }
 
 export interface Comentario {
@@ -78,6 +83,24 @@ export interface Comentario {
   autor: string;
   contenido: string;
   fecha_creacion: string;
+}
+
+export interface TecnicoAsignado {
+  id?: number;
+  nombre: string;
+  horas: number;
+  especialidad?: string;
+}
+
+export interface Adjunto {
+  id?: number;
+  tipo: "foto" | "pdf" | "audio" | "documento";
+  nombre: string;
+  ruta?: string;
+  descripcion?: string;
+  fecha?: string;
+  subido_por?: string;
+  url?: string;
 }
 
 export interface TrabajoCreate {
@@ -93,4 +116,5 @@ export interface TrabajoCreate {
   obra_provincia?: string;
   fecha_inicio?: string;
   fecha_fin_estimada?: string;
+  tecnicos_asignados?: { nombre: string; horas: number }[];
 }

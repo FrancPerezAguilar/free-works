@@ -47,3 +47,15 @@ export function addComentario(trabajoId: number, data: { contenido: string; auto
 export function getTareasPorFecha(fecha: string): Promise<ChecklistItem[]> {
   return api.get(`tareas/fecha/${fecha}`);
 }
+
+// ── Técnicos ──────────────────────────────────────
+
+export function getTecnicos(): Promise<{ id: number; nombre: string; especialidad?: string }[]> {
+  return api.get("tecnicos");
+}
+
+// ── Adjuntos ──────────────────────────────────────
+
+export function uploadAdjunto(trabajoId: number, data: FormData): Promise<{ mensaje: string }> {
+  return api.post(`trabajos/${trabajoId}/adjuntos`, data);
+}

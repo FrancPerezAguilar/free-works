@@ -36,6 +36,7 @@ export const SIDEBAR_ITEMS = [
   { icon: "LayoutDashboard", label: "Dashboard",   path: "/" },
   { icon: "Users",           label: "Clientes",    path: "/clientes" },
   { icon: "Wrench",          label: "Trabajos",    path: "/trabajos" },
+  { icon: "UserPlus",        label: "Técnicos",    path: "/tecnicos" },
   { icon: "FileText",        label: "Presupuestos",path: "/presupuestos" },
   { icon: "Receipt",         label: "Facturas",    path: "/facturas" },
   { icon: "Target",          label: "Oportunidades",path: "/oportunidades" },
@@ -47,6 +48,7 @@ export const MOBILE_NAV_ITEMS = [
   { icon: "LayoutDashboard", label: "Inicio",     path: "/" },
   { icon: "Wrench",          label: "Trabajos",   path: "/trabajos" },
   { icon: "Users",           label: "Clientes",   path: "/clientes" },
+  { icon: "UserPlus",        label: "Técnicos",   path: "/tecnicos" },
   { icon: "Calendar",        label: "Calendario", path: "/calendario" },
   { icon: "Receipt",         label: "Facturas",   path: "/facturas" },
 ] as const;
