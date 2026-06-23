@@ -44,9 +44,7 @@ export const SIDEBAR_ITEMS = [
 ] as const;
 
 export const MOBILE_NAV_ITEMS = [
-  { icon: "LayoutDashboard", label: "Inicio",     path: "/" },
-  { icon: "Wrench",          label: "Trabajos",   path: "/trabajos" },
-  { icon: "Users",           label: "Clientes",   path: "/clientes" },
-  { icon: "Calendar",        label: "Calendario", path: "/calendario" },
-  { icon: "Receipt",         label: "Facturas",   path: "/facturas" },
+  { icon: "LayoutDashboard", label: "Inicio",   path: "/" },
+  { icon: "Wrench",          label: "Trabajos", path: "/trabajos" },
+  { icon: "Users",           label: "Clientes", path: "/clientes" },
 ] as const;

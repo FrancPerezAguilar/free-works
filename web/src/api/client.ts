@@ -1,3 +1,22 @@
+/**
+ * Cliente HTTP legacy — DEPRECATED.
+ *
+ * Free Works ha migrado de FastAPI/PostgreSQL a Appwrite. Los módulos
+ * de `web/src/api/*` ya no usan este `api`; consumen directamente
+ * los helpers de `web/src/lib/appwriteDb.ts`.
+ *
+ * Este archivo se mantiene para:
+ *   1. Compatibilidad con código de terceros (componentes assistant,
+ *      integraciones puntuales) que aún hacen `fetch('/api/...')`.
+ *   2. Servir como punto único de migración si en el futuro hace
+ *      falta un proxy HTTP a Cloud Functions de Appwrite.
+ *
+ * Si una página aún importa `api` desde aquí, está usando el backend
+ * antiguo y debería migrarse a los módulos `web/src/api/<entidad>.ts`.
+ */
+
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+
 const BASE = "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -9,6 +28,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+/** @deprecated Usa los módulos de `web/src/api/<entidad>.ts` (Appwrite). */
 export const api = {
   get: <T>(path: string) => request<T>(path),
 

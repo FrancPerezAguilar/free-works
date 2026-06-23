@@ -7,9 +7,10 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
@@ -1463,6 +1464,171 @@ def serialize_dict(d):
 @app.get("/health")
 def health():
     return {"status": "ok", "db": "postgresql", "version": "1.0.0"}
+
+
+# ══════════════════════════════════════════════════════
+# ASSISTANT (Hermes AI Chat)
+# ══════════════════════════════════════════════════════
+
+HERMES_API_URL = os.getenv("HERMES_API_URL", "http://localhost:9090/v1")
+HERMES_API_KEY = os.getenv("HERMES_API_KEY", "")
+HERMES_MODEL = os.getenv("HERMES_MODEL", "jarvis")
+
+
+@app.post("/api/assistant/chat")
+async def assistant_chat(body: dict):
+    """
+    Recibe { message: string, history?: array } del frontend.
+    Reenvía al Hermes API Server (/v1/chat/completions) con streaming.
+    Devuelve SSE (Server-Sent Events) con los tokens en tiempo real.
+    """
+    message = body.get("message", "")
+    history = body.get("history", [])
+
+    # Construir mensajes: history + nuevo mensaje
+    messages = list(history) + [{"role": "user", "content": message}]
+
+    async def generate():
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream(
+                    "POST",
+                    f"{HERMES_API_URL}/chat/completions",
+                    headers={
+                        **({"Authorization": f"Bearer {HERMES_API_KEY}"} if HERMES_API_KEY else {}),
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": HERMES_MODEL,
+                        "messages": messages,
+                        "stream": True,
+                        "max_tokens": 4096,
+                    },
+                ) as resp:
+                    if resp.status_code != 200:
+                        error_body = await resp.aread()
+                        yield f"data: {json.dumps({'error': f'Hermes API error {resp.status_code}: {error_body.decode()}'})}\n\n"
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            if data.strip() == "[DONE]":
+                                yield "data: [DONE]\n\n"
+                                return
+                            try:
+                                chunk = json.loads(data)
+                                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                                content = delta.get("content", "")
+                                if content:
+                                    yield f"data: {json.dumps({'content': content})}\n\n"
+                            except json.JSONDecodeError:
+                                continue
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/assistant/audio")
+async def assistant_audio(file: UploadFile = File(...)):
+    """
+    Recibe un archivo de audio multipart del frontend.
+    Lo guarda en uploads/ y devuelve confirmación de recepción.
+    """
+    # Guardar archivo
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"audio_{timestamp}_{file.filename or 'recording.webm'}"
+    filepath = UPLOADS_DIR / filename
+
+    content = await file.read()
+    filepath.write_bytes(content)
+
+    # Por ahora: devolvemos confirmación de recepción
+    # Más adelante: transcribir con Whisper y enviar a Hermes
+    return {
+        "status": "received",
+        "filename": filename,
+        "size": len(content),
+        "message": f"🎤 Audio recibido ({len(content)/1024:.1f} KB). La transcripción se implementará próximamente.",
+    }
+
+
+@app.get("/api/assistant/health")
+async def assistant_health():
+    """Verifica que el Hermes API Server esté accesible."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{HERMES_API_URL}/models",
+                headers=(
+                    {"Authorization": f"Bearer {HERMES_API_KEY}"}
+                    if HERMES_API_KEY
+                    else {}
+                ),
+            )
+            if resp.status_code == 200:
+                models = resp.json()
+                return {
+                    "status": "connected",
+                    "model": HERMES_MODEL,
+                    "models": [m.get("id") for m in models.get("data", [])],
+                }
+            else:
+                return {"status": "error", "code": resp.status_code, "detail": "Hermes API returned non-200"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+# ══════════════════════════════════════════════════════
+# WAITLIST (Landing page)
+# ══════════════════════════════════════════════════════
+
+@app.post("/api/waitlist")
+async def waitlist_signup(body: dict):
+    """
+    Guarda un teléfono en la lista de espera (landing page).
+    Body: { telefono: string, nombre?: string }
+    Devuelve siempre success=True salvo validación o error de BD.
+    Si el teléfono ya existe, no duplica.
+    """
+    telefono = (body.get("telefono") or "").strip()
+    if not telefono or len(telefono) < 9:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            {"success": False, "error": "Teléfono inválido"},
+            status_code=400,
+        )
+
+    nombre = (body.get("nombre") or "").strip() or None
+
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        # No duplicar
+        cur.execute("SELECT id FROM waitlist WHERE telefono = %s", (telefono,))
+        if cur.fetchone():
+            return {"success": True, "message": "Ya estás en la lista"}
+
+        cur.execute(
+            "INSERT INTO waitlist (telefono, nombre) VALUES (%s, %s)",
+            (telefono, nombre),
+        )
+        conn.commit()
+        return {"success": True, "message": "¡Te llamaremos pronto!"}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
 
 
 # ══════════════════════════════════════════════════════
