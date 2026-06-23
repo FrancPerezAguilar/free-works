@@ -88,11 +88,18 @@ export function AssistantProvider({ children }: AssistantProviderProps) {
     ]);
   }, []);
 
-  const updateLastAssistant = useCallback((id: string, patch: Partial<Message>) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
-    );
-  }, []);
+  const updateLastAssistant = useCallback(
+    (id: string, patch: Partial<Message> | ((prev: Message) => Partial<Message>)) => {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m;
+          const resolvedPatch = typeof patch === "function" ? patch(m) : patch;
+          return { ...m, ...resolvedPatch };
+        })
+      );
+    },
+    []
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
