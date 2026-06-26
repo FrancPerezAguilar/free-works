@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <title>Free Works</title>
+    <!-- Telegram Mini App SDK. Se carga siempre; cuando la página se abre
+         FUERA de Telegram, `window.Telegram.WebApp` queda `undefined` y el
+         `TelegramProvider` opera en modo "no-Telegram" sin efectos. -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
     <div id="root"></div>
